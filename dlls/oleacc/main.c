@@ -31,6 +31,11 @@
 WINE_DEFAULT_DEBUG_CHANNEL(oleacc);
 
 static HINSTANCE oleacc_handle = 0;
+static HANDLE objects_handle;
+typedef struct Objects_ {
+    int index;
+    void* objects[100];
+} Objects;
 
 HRESULT WINAPI CreateStdAccessibleObject( HWND hwnd, LONG idObject,
                              REFIID riidInterface, void** ppvObject )
@@ -42,14 +47,80 @@ HRESULT WINAPI CreateStdAccessibleObject( HWND hwnd, LONG idObject,
 
 HRESULT WINAPI ObjectFromLresult( LRESULT result, REFIID riid, WPARAM wParam, void **ppObject )
 {
-    FIXME("%ld %s %ld %p\n", result, debugstr_guid(riid), wParam, ppObject );
-    return E_NOTIMPL;
+    HRESULT return_value = S_OK;
+    DWORD e;
+    Objects* objects;
+    
+    FIXME("SELENIUM %ld %s %ld %p pid=%d\n", result, debugstr_guid(riid), wParam, ppObject, GetCurrentProcessId() );
+    if (!objects_handle) {
+        FIXME("SELENIUM invalid objects_handle\n");
+        return E_NOTIMPL;
+    }
+
+    objects = (Objects*)MapViewOfFile(objects_handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+    if (objects == NULL) {
+        e = GetLastError();
+        FIXME("SELENIUM MapViewOfFile failure e=%d\n", e);
+        return E_NOTIMPL;
+    }
+
+    if (0 <= result && result < objects->index && result < (sizeof(objects->objects) / sizeof(objects->objects[0]))) {
+        HRESULT query_interface_result;
+        LPUNKNOWN pAcc = (LPUNKNOWN)objects->objects[result];
+        FIXME("SELENIUM read pAcc=%p\n", pAcc);
+        FIXME("SELENIUM read pAcc->lpVtbl=%p\n", pAcc->lpVtbl);
+        FIXME("SELENIUM read pAcc->lpVtbl->QueryInterface=%p\n", pAcc->lpVtbl->QueryInterface);
+        query_interface_result = pAcc->lpVtbl->QueryInterface(pAcc, riid, ppObject);
+        if (FAILED(query_interface_result)) {
+            return_value = E_NOTIMPL;
+        }
+        FIXME("SELENIUM read %p[%ld] -> %p / %p\n",
+              objects->objects, result, objects->objects[result], *ppObject);
+    } else {
+        FIXME("SELENIUM read failure %p[%ld - %d - %d]\n",
+              objects->objects, result, objects->index,
+              (sizeof(objects->objects) / sizeof(objects->objects[0])));
+        return_value = E_INVALIDARG;
+    }
+    UnmapViewOfFile(objects);
+    FIXME("SELENIUM rv=%d\n", return_value);
+    return return_value;
 }
 
 LRESULT WINAPI LresultFromObject( REFIID riid, WPARAM wParam, LPUNKNOWN pAcc )
 {
-    FIXME("%s %ld %p\n", debugstr_guid(riid), wParam, pAcc );
-    return E_NOTIMPL;
+    LRESULT return_value;
+    DWORD e;
+    Objects* objects;
+
+    FIXME("SELENIUM %s %ld %p pid=%d\n", debugstr_guid(riid), wParam, pAcc, GetCurrentProcessId() );
+    FIXME("SELENIUM write pAcc=%p\n", pAcc);
+    FIXME("SELENIUM write pAcc->lpVtbl=%p\n", pAcc->lpVtbl);
+    FIXME("SELENIUM write pAcc->lpVtbl->QueryInterface=%p\n", pAcc->lpVtbl->QueryInterface);
+    if (!objects_handle) {
+        FIXME("SELENIUM invalid objects_handle\n");
+        return E_NOTIMPL;
+    }
+
+    objects = (Objects*)MapViewOfFile(objects_handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+    if (objects == NULL) {
+        e = GetLastError();
+        FIXME("SELENIUM MapViewOfFile failure e=%d\n", e);
+        return E_NOTIMPL;
+    }
+
+    if (objects->index < (sizeof(objects->objects) / sizeof(objects->objects[0]))) {
+        objects->objects[objects->index] = pAcc;
+        return_value = objects->index;
+        FIXME("SELENIUM write %p[%d] <- %p\n", objects->objects, objects->index, pAcc);
+        objects->index++;
+        pAcc->lpVtbl->AddRef(pAcc);
+    } else {
+        return_value = E_OUTOFMEMORY;
+    }
+    UnmapViewOfFile(objects);
+    FIXME("SELENIUM rv=%ld\n", return_value);
+    return return_value;
 }
 
 HRESULT WINAPI AccessibleObjectFromPoint( POINT ptScreen, IAccessible** ppacc, VARIANT* pvarChild )
@@ -73,9 +144,37 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason,
 
     switch (fdwReason)
     {
-        case DLL_PROCESS_ATTACH:
+        case DLL_PROCESS_ATTACH: {
             oleacc_handle = hinstDLL;
             DisableThreadLibraryCalls(hinstDLL);
+            objects_handle = CreateFileMappingA(
+                INVALID_HANDLE_VALUE,
+                NULL,
+                PAGE_READWRITE,
+                0, 
+                1024,
+                "Kumei's Object");
+            if (!objects_handle) {
+                DWORD e = GetLastError();
+                FIXME("SELENIUM CreateFileMapping failure e=%d\n", e);
+            } else {
+                Objects* objects = (Objects*)MapViewOfFile(objects_handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+                if (objects == NULL) {
+                    DWORD e = GetLastError();
+                    FIXME("SELENIUM MapViewOfFile failure e=%d\n", e);
+                } else {
+                    Objects initializer = {0};
+                    initializer.index = 1; /* Positive value required. */
+                    *objects = initializer;
+                    UnmapViewOfFile(objects);
+                }
+            }
+            break;
+        }
+        case DLL_PROCESS_DETACH:
+            if (objects_handle) {
+                CloseHandle(objects_handle);
+            }
             break;
     }
     return TRUE;

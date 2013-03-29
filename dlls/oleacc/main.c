@@ -42,32 +42,34 @@ static IStream* CreateObjectStreamOnFile( LRESULT marshal_sequence, REFIID riid,
 {
     IStream* stream = NULL;
     WCHAR dir_name[MAX_PATH + 1] = {0};
-    WCHAR file_name[1024 / sizeof(WCHAR)] = {0}; // 1024 bytes. see http://msdn.microsoft.com/en-us/library/windows/desktop/ms647550%28v=vs.85%29.aspx
+    WCHAR file_name[1024 / sizeof(WCHAR)] = {0}; /* 1024 bytes. see http://msdn.microsoft.com/en-us/library/windows/desktop/ms647550%28v=vs.85%29.aspx */
     const WCHAR file_name_format[] = {
-        L'a', L'c', L'c', L'-',
-        L'%', L'x'
+        L'L', L'r', L'e', L's', L'u', L'l', L't',
+        L'F', L'r', L'o', L'm',
+        L'O', L'b', L'j', L'e', L'c', L't',
+        L'-', L'%', L'x'
     };
     WCHAR* full_name = NULL;
     HANDLE heap_handle;
     HRESULT result_handle;
-    LARGE_INTEGER move = {0};
+    LARGE_INTEGER seek_offset = {{0}};
 
     heap_handle = GetProcessHeap();
     if (heap_handle == NULL) {
         DWORD e = GetLastError();
-        FIXME("HeapAllocObjectTempPath a e=%d\n", e);
+        FIXME("GetProcessHeap e=%d\n", e);
         goto clean_up;
     }
     wsprintfW(file_name, file_name_format, marshal_sequence);
     if (GetTempPathW(sizeof(dir_name) / sizeof(dir_name[0]), dir_name) == 0) {
         DWORD e = GetLastError();
-        FIXME("HeapAllocObjectTempPath b e=%d\n", e);
+        FIXME("GetTempPathW e=%d\n", e);
         goto clean_up;
     }
     full_name = HeapAlloc(heap_handle, 0, sizeof(WCHAR) * (lstrlenW(dir_name) + lstrlenW(file_name) + (/* null term */ 1)));
     if (full_name == NULL) {
         DWORD e = GetLastError();
-        FIXME("HeapAllocObjectTempPath c e=%d\n", e);
+        FIXME("HeapAlloc e=%d\n", e);
         goto clean_up;
     }
     lstrcpyW(full_name, dir_name);
@@ -78,32 +80,26 @@ static IStream* CreateObjectStreamOnFile( LRESULT marshal_sequence, REFIID riid,
         }
     }
     lstrcatW(full_name, file_name);
-    FIXME("HeapAllocObjectTempPath success p=%p\n", full_name);
 
     result_handle = SHCreateStreamOnFileEx(
         full_name, grfMode,
         FILE_ATTRIBUTE_NORMAL, fCreate, NULL, &stream);
     if (result_handle != S_OK) {
         DWORD e = GetLastError();
-        FIXME("SHCreateStreamOnFileEx d e=%d hr=%d\n", e, result_handle);
+        FIXME("SHCreateStreamOnFileEx e=%d hr=%d\n", e, result_handle);
         goto clean_up;
     }
-    result_handle = stream->lpVtbl->Seek(stream, move, STREAM_SEEK_SET, NULL);
+    result_handle = stream->lpVtbl->Seek(stream, seek_offset, STREAM_SEEK_SET, NULL);
     if (result_handle != S_OK) {
         DWORD e = GetLastError();
-        FIXME("Y%d\n", 10);
         FIXME("IStream::Seek e=%d hr=%d\n", e, result_handle);
         goto clean_up;
     }
 
-    FIXME("X SUCCEED\n");
 clean_up:
-    FIXME("X%d\n", 2);
     if (full_name != NULL) {
-        FIXME("X%d\n", 3);
         HeapFree(heap_handle, 0, full_name);
     }
-    FIXME("X%d\n", 4);
     return stream;
 }
 
@@ -121,7 +117,7 @@ HRESULT WINAPI ObjectFromLresult( LRESULT result, REFIID riid, WPARAM wParam, vo
     DWORD e = NO_ERROR;
     SharedVariable* shared_variable = NULL;
     DWORD wait_result = WAIT_FAILED;
-    LPUNKNOWN pAcc = NULL; // (LPUNKNOWN)shared_variable->objects[result];
+    LPUNKNOWN pAcc = NULL;
     IStream* stream = NULL;
     HRESULT result_handle;
     
@@ -171,7 +167,6 @@ LRESULT WINAPI LresultFromObject( REFIID riid, WPARAM wParam, LPUNKNOWN pAcc )
     SharedVariable* shared_variable = NULL;
     IStream* stream = NULL;
     HRESULT result_handle;
-    INT marshal_sequence;
 
     FIXME("SELENIUM %s %ld %p pid=%d\n", debugstr_guid(riid), wParam, pAcc, GetCurrentProcessId() );
 
@@ -197,64 +192,37 @@ LRESULT WINAPI LresultFromObject( REFIID riid, WPARAM wParam, LPUNKNOWN pAcc )
         goto clean_up;
     }
 
-    marshal_sequence = shared_variable->marshal_sequence;
-
-    stream = CreateObjectStreamOnFile( marshal_sequence, riid, pAcc, STGM_WRITE | STGM_CREATE, TRUE);
-    FIXME("Y%d\n", 1);
+    stream = CreateObjectStreamOnFile( shared_variable->marshal_sequence, riid, pAcc, STGM_WRITE | STGM_CREATE, TRUE);
     if (stream == NULL) {
-        FIXME("Y%d\n", 2);
         goto clean_up;
     }
 
-    FIXME("Y%d\n", 3);
     result_handle = CoMarshalInterface(
         stream, riid, pAcc,
         MSHCTX_LOCAL, NULL, MSHLFLAGS_NORMAL);
-    FIXME("Y%d\n", 4);
     if (result_handle != S_OK) {
         DWORD e = GetLastError();
-        FIXME("Y%d\n", 5);
         FIXME("CoMarshalInterface e e=%d hr=%d\n", e, result_handle);
         goto clean_up;
     }
 
-//    result_handle = stream->lpVtbl->Write(stream, "foo", 3, NULL);
-//    FIXME("Y%d\n", 20);
-//    if (result_handle != S_OK) {
-//        DWORD e = GetLastError();
-//        FIXME("Y%d\n", 21);
-//        FIXME("IStream::Commit e=%d hr=%d\n", e, result_handle);
-//    }
-
-    FIXME("Y%d\n", 6);
-    return_value = marshal_sequence; // redudant?
+    return_value = shared_variable->marshal_sequence;
 
 clean_up:
-    FIXME("Y%d\n", 7);
     if (stream) {
-        FIXME("Y%d\n", 8);
         result_handle = stream->lpVtbl->Commit(stream, STGC_DEFAULT);
-        FIXME("Y%d\n", 9);
         if (result_handle != S_OK) {
             DWORD e = GetLastError();
-            FIXME("Y%d\n", 10);
             FIXME("IStream::Commit e=%d hr=%d\n", e, result_handle);
         }
-        FIXME("Y%d\n", 11);
         stream->lpVtbl->Release(stream);
-        FIXME("Y%d\n", 12);
     }
-    FIXME("Y%d\n", 13);
     if (shared_variable) {
-        FIXME("Y%d\n", 14);
         UnmapViewOfFile(shared_variable);
     }
-    FIXME("Y%d\n", 15);
     if (wait_result == WAIT_OBJECT_0) {
-        FIXME("Y%d\n", 16);
         ReleaseMutex(shared_variable_mutex_handle);
     }
-    FIXME("Y%d\n", 17);
     FIXME("SELENIUM rv=%ld\n", return_value);
     return return_value;
 }
@@ -304,16 +272,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason,
                 FIXME("SELENIUM CreateFileMapping failure e=%d\n", e);
                 break;
             }
-
-            // No initialization.
-            // shared_variable = (SharedVariable*)MapViewOfFile(shared_variable_handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-            // if (shared_variable == NULL) {
-            //     DWORD e = GetLastError();
-            //     FIXME("SELENIUM MapViewOfFile failure e=%d\n", e);
-            //     break;
-            // }
-            // *shared_variable = initializer;
-            // UnmapViewOfFile(shared_variable);
             break;
         }
         case DLL_PROCESS_DETACH:

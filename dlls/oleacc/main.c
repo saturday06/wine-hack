@@ -38,7 +38,7 @@ typedef struct SharedVariable_ {
     LRESULT marshal_sequence;
 } SharedVariable;
 
-static IStream* CreateObjectStreamOnFile( LRESULT marshal_sequence, REFIID riid, LPUNKNOWN pAcc, DWORD grfMode, BOOL fCreate )
+static IStream* CreateObjectStreamOnFile( LRESULT marshal_sequence, DWORD grfMode, BOOL fCreate )
 {
     IStream* stream = NULL;
     WCHAR dir_name[MAX_PATH + 1] = {0};
@@ -116,26 +116,12 @@ HRESULT WINAPI ObjectFromLresult( LRESULT result, REFIID riid, WPARAM wParam, vo
 {
     HRESULT return_value = E_NOTIMPL;
     DWORD e = NO_ERROR;
-    SharedVariable* shared_variable = NULL;
-    DWORD wait_result = WAIT_FAILED;
-    LPUNKNOWN pAcc = NULL;
     IStream* stream = NULL;
     HRESULT result_handle;
     
-    FIXME("SELENIUM %ld %s %ld %p pid=%d\n", result, debugstr_guid(riid), wParam, ppObject, GetCurrentProcessId() );
-    if (!shared_variable_handle) {
-        FIXME("SELENIUM invalid shared_variable_handle\n");
-        goto clean_up;
-    }
+    FIXME("args: %ld %s %ld %p pid=%d\n", result, debugstr_guid(riid), wParam, ppObject, GetCurrentProcessId() );
 
-    wait_result = WaitForSingleObject(shared_variable_mutex_handle, INFINITE);
-    if (wait_result != WAIT_OBJECT_0) {
-        e = GetLastError();
-        FIXME("SELENIUM wait_result=%d e=%d\n", wait_result, e);
-        goto clean_up;
-    }
-
-    stream = CreateObjectStreamOnFile( result, riid, pAcc, STGM_READ | STGM_FAILIFTHERE, FALSE);
+    stream = CreateObjectStreamOnFile( result, STGM_READ | STGM_FAILIFTHERE | STGM_DELETEONRELEASE, FALSE);
     if (stream == NULL) {
         goto clean_up;
     }
@@ -150,13 +136,10 @@ HRESULT WINAPI ObjectFromLresult( LRESULT result, REFIID riid, WPARAM wParam, vo
     return_value = S_OK;
 
 clean_up:
-    if (shared_variable) {
-        UnmapViewOfFile(shared_variable);
+    if (stream) {
+        stream->lpVtbl->Release(stream);
     }
-    if (wait_result == WAIT_OBJECT_0) {
-        ReleaseMutex(shared_variable_mutex_handle);
-    }
-    FIXME("SELENIUM rv=%d\n", return_value);
+    FIXME("rv=%d\n", return_value);
     return return_value;
 }
 
@@ -169,10 +152,10 @@ LRESULT WINAPI LresultFromObject( REFIID riid, WPARAM wParam, LPUNKNOWN pAcc )
     IStream* stream = NULL;
     HRESULT result_handle;
 
-    FIXME("SELENIUM %s %ld %p pid=%d\n", debugstr_guid(riid), wParam, pAcc, GetCurrentProcessId() );
+    FIXME("ARGS %s %ld %p pid=%d\n", debugstr_guid(riid), wParam, pAcc, GetCurrentProcessId() );
 
     if (!shared_variable_handle) {
-        FIXME("SELENIUM invalid shared_variable_handle\n");
+        FIXME("invalid shared_variable_handle\n");
         return_value = E_OUTOFMEMORY;
         goto clean_up;
     }
@@ -180,7 +163,7 @@ LRESULT WINAPI LresultFromObject( REFIID riid, WPARAM wParam, LPUNKNOWN pAcc )
     wait_result = WaitForSingleObject(shared_variable_mutex_handle, INFINITE);
     if (wait_result != WAIT_OBJECT_0) {
         e = GetLastError();
-        FIXME("SELENIUM wait_result=%d e=%d\n", wait_result, e);
+        FIXME("WaitForSingleObject wait_result=%d e=%d\n", wait_result, e);
         return_value = E_OUTOFMEMORY;
         goto clean_up;
     }
@@ -188,12 +171,14 @@ LRESULT WINAPI LresultFromObject( REFIID riid, WPARAM wParam, LPUNKNOWN pAcc )
     shared_variable = (SharedVariable*)MapViewOfFile(shared_variable_handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
     if (shared_variable == NULL) {
         e = GetLastError();
-        FIXME("SELENIUM MapViewOfFile failure e=%d\n", e);
+        FIXME("MapViewOfFile failure e=%d\n", e);
         return_value = E_OUTOFMEMORY;
         goto clean_up;
     }
 
-    stream = CreateObjectStreamOnFile( shared_variable->marshal_sequence, riid, pAcc, STGM_WRITE | STGM_CREATE, TRUE);
+    shared_variable->marshal_sequence++;
+
+    stream = CreateObjectStreamOnFile( shared_variable->marshal_sequence, STGM_WRITE | STGM_CREATE, TRUE);
     if (stream == NULL) {
         goto clean_up;
     }
@@ -224,7 +209,7 @@ clean_up:
     if (wait_result == WAIT_OBJECT_0) {
         ReleaseMutex(shared_variable_mutex_handle);
     }
-    FIXME("SELENIUM rv=%ld\n", return_value);
+    FIXME("rv=%ld\n", return_value);
     return return_value;
 }
 

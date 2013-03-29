@@ -44,6 +44,7 @@ static IStream* CreateObjectStreamOnFile( LRESULT marshal_sequence, REFIID riid,
     WCHAR dir_name[MAX_PATH + 1] = {0};
     WCHAR file_name[1024 / sizeof(WCHAR)] = {0}; /* 1024 bytes. see http://msdn.microsoft.com/en-us/library/windows/desktop/ms647550%28v=vs.85%29.aspx */
     const WCHAR file_name_format[] = {
+        L'\\',
         L'L', L'r', L'e', L's', L'u', L'l', L't',
         L'F', L'r', L'o', L'm',
         L'O', L'b', L'j', L'e', L'c', L't',

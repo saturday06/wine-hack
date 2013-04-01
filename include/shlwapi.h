@@ -24,6 +24,7 @@
 /* FIXME: #include <specstrings.h> */
 #include <objbase.h>
 #include <shtypes.h>
+#include <winreg.h>
 
 #ifdef __cplusplus
 extern "C" {

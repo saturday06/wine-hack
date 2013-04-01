@@ -3780,12 +3780,23 @@ found:
     if(!face->scalable) {
         /* Windows uses integer scaling factors for bitmap fonts */
         INT scale, scaled_height;
+        GdiFont *cachedfont;
 
         /* FIXME: rotation of bitmap fonts is ignored */
         height = abs(GDI_ROUND( (double)height * ret->font_desc.matrix.eM22 ));
         if (ret->aveWidth)
             ret->aveWidth = (double)ret->aveWidth * ret->font_desc.matrix.eM11;
         ret->font_desc.matrix.eM11 = ret->font_desc.matrix.eM22 = 1.0;
+        dcmat.eM11 = dcmat.eM22 = 1.0;
+        /* As we changed the matrix, we need to search the cache for the font again,
+         * otherwise we might explode the cache. */
+        if((cachedfont = find_in_cache(hfont, &lf, &dcmat, can_use_bitmap)) != NULL) {
+            TRACE("Found cached font after non-scalable matrix rescale!\n");
+            free_font( ret );
+            LeaveCriticalSection( &freetype_cs );
+            return cachedfont;
+        }
+        calc_hash(&ret->font_desc);
 
         if (height != 0) height = diff;
         height += face->size.height;
@@ -4044,6 +4055,54 @@ static void GetEnumStructs(Face *face, LPENUMLOGFONTEXW pelf,
     free_font(font);
 }
 
+static BOOL family_matches(Family *family, const LOGFONTW *lf)
+{
+    struct list *face_elem_ptr;
+
+    if (!strcmpiW(lf->lfFaceName, family->FamilyName)) return TRUE;
+
+    LIST_FOR_EACH(face_elem_ptr, &family->faces)
+    {
+        static const WCHAR spaceW[] = { ' ',0 };
+        WCHAR full_family_name[LF_FULLFACESIZE];
+        Face *face = LIST_ENTRY(face_elem_ptr, Face, entry);
+
+        if (strlenW(family->FamilyName) + strlenW(face->StyleName) + 2 > LF_FULLFACESIZE)
+        {
+            FIXME("Length of %s + %s + 2 is longer than LF_FULLFACESIZE\n",
+                  debugstr_w(family->FamilyName), debugstr_w(face->StyleName));
+            continue;
+        }
+
+        strcpyW(full_family_name, family->FamilyName);
+        strcatW(full_family_name, spaceW);
+        strcatW(full_family_name, face->StyleName);
+        if (!strcmpiW(lf->lfFaceName, full_family_name)) return TRUE;
+    }
+
+    return FALSE;
+}
+
+static BOOL face_matches(Face *face, const LOGFONTW *lf)
+{
+    static const WCHAR spaceW[] = { ' ',0 };
+    WCHAR full_family_name[LF_FULLFACESIZE];
+
+    if (!strcmpiW(lf->lfFaceName, face->family->FamilyName)) return TRUE;
+
+    if (strlenW(face->family->FamilyName) + strlenW(face->StyleName) + 2 > LF_FULLFACESIZE)
+    {
+        FIXME("Length of %s + %s + 2 is longer than LF_FULLFACESIZE\n",
+              debugstr_w(face->family->FamilyName), debugstr_w(face->StyleName));
+        return FALSE;
+    }
+
+    strcpyW(full_family_name, face->family->FamilyName);
+    strcatW(full_family_name, spaceW);
+    strcatW(full_family_name, face->StyleName);
+    return !strcmpiW(lf->lfFaceName, full_family_name);
+}
+
 /*************************************************************
  * WineEngEnumFonts
  *
@@ -4087,9 +4146,12 @@ DWORD WineEngEnumFonts(LPLOGFONTW plf, FONTENUMPROCW proc, LPARAM lparam)
 
         LIST_FOR_EACH(family_elem_ptr, &font_list) {
             family = LIST_ENTRY(family_elem_ptr, Family, entry);
-            if(!strcmpiW(plf->lfFaceName, family->FamilyName)) {
+            if(family_matches(family, plf)) {
                 LIST_FOR_EACH(face_elem_ptr, &family->faces) {
                     face = LIST_ENTRY(face_elem_ptr, Face, entry);
+
+                    if (!face_matches(face, plf)) continue;
+
                     GetEnumStructs(face, &elf, &ntm, &type);
                     for(i = 0; i < 32; i++) {
                         if(!face->scalable && face->fs.fsCsb[0] == 0) { /* OEM bitmap */
@@ -4693,14 +4755,11 @@ DWORD WineEngGetGlyphOutline(GdiFont *incoming_font, UINT glyph, UINT format,
         return GDI_ERROR;
     }
 
-    left = (INT)(ft_face->glyph->metrics.horiBearingX) & -64;
-    right = (INT)((ft_face->glyph->metrics.horiBearingX + ft_face->glyph->metrics.width) + 63) & -64;
-
-    adv = (INT)((ft_face->glyph->metrics.horiAdvance) + 63) >> 6;
-    lsb = left >> 6;
-    bbx = (right - left) >> 6;
-
     if(!needsTransform) {
+        left = (INT)(ft_face->glyph->metrics.horiBearingX) & -64;
+        right = (INT)((ft_face->glyph->metrics.horiBearingX + ft_face->glyph->metrics.width) + 63) & -64;
+        adv = (INT)(ft_face->glyph->metrics.horiAdvance + 63) >> 6;
+
 	top = (ft_face->glyph->metrics.horiBearingY + 63) & -64;
 	bottom = (ft_face->glyph->metrics.horiBearingY -
 		  ft_face->glyph->metrics.height) & -64;
@@ -4709,6 +4768,9 @@ DWORD WineEngGetGlyphOutline(GdiFont *incoming_font, UINT glyph, UINT format,
     } else {
         INT xc, yc;
 	FT_Vector vec;
+
+        left = right = 0;
+
 	for(xc = 0; xc < 2; xc++) {
 	    for(yc = 0; yc < 2; yc++) {
 	        vec.x = (ft_face->glyph->metrics.horiBearingX +
@@ -4745,6 +4807,9 @@ DWORD WineEngGetGlyphOutline(GdiFont *incoming_font, UINT glyph, UINT format,
         pFT_Vector_Transform(&vec, &transMatUnrotated);
         adv = (vec.x+63) >> 6;
     }
+
+    lsb = left >> 6;
+    bbx = (right - left) >> 6;
     lpgm->gmBlackBoxX = (right - left) >> 6;
     lpgm->gmBlackBoxY = (top - bottom) >> 6;
     lpgm->gmptGlyphOrigin.x = left >> 6;
@@ -6216,6 +6281,7 @@ DWORD WineEngGetFontUnicodeRanges(GdiFont *font, LPGLYPHSET glyphset)
     {
         glyphset->cbThis = size;
         glyphset->cRanges = num_ranges;
+        glyphset->flAccel = 0;
     }
     return size;
 }

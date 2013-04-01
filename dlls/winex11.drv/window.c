@@ -430,6 +430,10 @@ static void sync_window_cursor( struct x11drv_win_data *data )
     SERVER_END_REQ;
 
     set_window_cursor( data->hwnd, cursor );
+
+    /* setting the cursor can fail if the window isn't created yet */
+    /* so make sure that we try again once we receive a mouse event */
+    data->cursor = (HANDLE)~0u;
 }
 
 
@@ -1596,7 +1600,7 @@ static void move_window_bits( struct x11drv_win_data *data, const RECT *old_rect
     RECT dst_rect = *new_rect;
     HDC hdc_src, hdc_dst;
     INT code;
-    HRGN rgn = 0;
+    HRGN rgn;
     HWND parent = 0;
 
     if (!data->whole_window)
@@ -1615,6 +1619,11 @@ static void move_window_bits( struct x11drv_win_data *data, const RECT *old_rect
         hdc_src = hdc_dst = GetDCEx( data->hwnd, 0, DCX_CACHE );
     }
 
+    rgn = CreateRectRgnIndirect( &dst_rect );
+    SelectClipRgn( hdc_dst, rgn );
+    DeleteObject( rgn );
+    ExcludeUpdateRgn( hdc_dst, data->hwnd );
+
     code = X11DRV_START_EXPOSURES;
     ExtEscape( hdc_dst, X11DRV_ESCAPE, sizeof(code), (LPSTR)&code, 0, NULL );
 
@@ -1625,6 +1634,7 @@ static void move_window_bits( struct x11drv_win_data *data, const RECT *old_rect
             dst_rect.right - dst_rect.left, dst_rect.bottom - dst_rect.top,
             hdc_src, src_rect.left, src_rect.top, SRCCOPY );
 
+    rgn = 0;
     code = X11DRV_END_EXPOSURES;
     ExtEscape( hdc_dst, X11DRV_ESCAPE, sizeof(code), (LPSTR)&code, sizeof(rgn), (LPSTR)&rgn );
 
@@ -1791,17 +1801,16 @@ void CDECL X11DRV_SetWindowText( HWND hwnd, LPCWSTR text )
  */
 void CDECL X11DRV_SetWindowStyle( HWND hwnd, INT offset, STYLESTRUCT *style )
 {
-    struct x11drv_win_data *data;
+    struct x11drv_win_data *data = X11DRV_get_win_data( hwnd );
     DWORD changed;
 
     if (hwnd == GetDesktopWindow()) return;
     changed = style->styleNew ^ style->styleOld;
 
-    if (offset == GWL_STYLE && (changed & WS_VISIBLE) && (style->styleNew & WS_VISIBLE))
+    /* if WS_VISIBLE was set through WM_SETREDRAW, map the window if it's the first time */
+    if (offset == GWL_STYLE && (changed & WS_VISIBLE) && (style->styleNew & WS_VISIBLE) && !data)
     {
-        /* we don't unmap windows, that causes trouble with the window manager */
-        if (!(data = X11DRV_get_win_data( hwnd )) &&
-            !(data = X11DRV_create_win_data( hwnd ))) return;
+        if (!(data = X11DRV_create_win_data( hwnd ))) return;
 
         if (data->whole_window && is_window_rect_mapped( &data->window_rect ))
         {
@@ -1810,20 +1819,13 @@ void CDECL X11DRV_SetWindowStyle( HWND hwnd, INT offset, STYLESTRUCT *style )
             if (!data->mapped) map_window( display, data, style->styleNew );
         }
     }
+    if (!data || !data->whole_window) return;
 
     if (offset == GWL_STYLE && (changed & WS_DISABLED))
-    {
-        data = X11DRV_get_win_data( hwnd );
-        if (data && data->whole_window)
-            set_wm_hints( thread_display(), data );
-    }
+        set_wm_hints( thread_display(), data );
 
-    if (offset == GWL_EXSTYLE && (changed & WS_EX_LAYERED))
-    {
-        /* changing WS_EX_LAYERED resets attributes */
-        if ((data = X11DRV_get_win_data( hwnd )) && data->whole_window)
-            sync_window_opacity( thread_display(), data->whole_window, 0, 0, 0 );
-    }
+    if (offset == GWL_EXSTYLE && (changed & WS_EX_LAYERED)) /* changing WS_EX_LAYERED resets attributes */
+        sync_window_opacity( thread_display(), data->whole_window, 0, 0, 0 );
 }
 
 
@@ -1862,6 +1864,7 @@ void CDECL X11DRV_DestroyWindow( HWND hwnd )
     }
 
     if (thread_data->last_focus == hwnd) thread_data->last_focus = 0;
+    if (thread_data->last_xic_hwnd == hwnd) thread_data->last_xic_hwnd = 0;
     if (data->hWMIconBitmap) DeleteObject( data->hWMIconBitmap );
     if (data->hWMIconMask) DeleteObject( data->hWMIconMask);
     wine_tsx11_lock();
@@ -2080,6 +2083,8 @@ XIC X11DRV_get_ic( HWND hwnd )
     XIM xim;
 
     if (!data) return 0;
+
+    x11drv_thread_data()->last_xic_hwnd = hwnd;
     if (data->xic) return data->xic;
     if (!(xim = x11drv_thread_data()->xim)) return 0;
     return X11DRV_CreateIC( xim, data );
@@ -2335,7 +2340,7 @@ void CDECL X11DRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_flags
             !memcmp( &valid_rects[0], &data->client_rect, sizeof(RECT) ))
         {
             /* if we have an X window the bits will be moved by the X server */
-            if (!data->whole_window)
+            if (!data->whole_window && (x_offset != 0 || y_offset != 0))
                 move_window_bits( data, &old_whole_rect, &data->whole_rect, &old_client_rect );
         }
         else
@@ -2361,7 +2366,7 @@ void CDECL X11DRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_flags
     if (data->mapped)
     {
         if (((swp_flags & SWP_HIDEWINDOW) && !(new_style & WS_VISIBLE)) ||
-            (event_type != ConfigureNotify &&
+            (!event_type &&
              !is_window_rect_mapped( rectWindow ) && is_window_rect_mapped( &old_window_rect )))
             unmap_window( display, data );
     }
@@ -2668,7 +2673,7 @@ LRESULT CDECL X11DRV_SysCommand( HWND hwnd, WPARAM wparam, LPARAM lparam )
      * with a ButtonPress event */
     wine_tsx11_lock();
     XUngrabPointer( display, CurrentTime );
-    XSendEvent(display, root_window, False, SubstructureNotifyMask, &xev);
+    XSendEvent(display, root_window, False, SubstructureNotifyMask | SubstructureRedirectMask, &xev);
     wine_tsx11_unlock();
     return 0;
 }

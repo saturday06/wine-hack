@@ -16,8 +16,6 @@ C_SRCS = \
 
 LEX_SRCS = macro.lex.l
 
-EXTRARCFLAGS = -DWINELIB
-
 RC_SRCS = \
 	Bg.rc \
 	Cs.rc \
@@ -42,6 +40,7 @@ RC_SRCS = \
 	Ru.rc \
 	Si.rc \
 	Sk.rc \
+	Sr.rc \
 	Sv.rc \
 	Tr.rc \
 	Uk.rc \

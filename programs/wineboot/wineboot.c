@@ -88,6 +88,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(wineboot);
 #define MAX_LINE_LENGTH (2*MAX_PATH+2)
 
 extern BOOL shutdown_close_windows( BOOL force );
+extern BOOL shutdown_all_desktops( BOOL force );
 extern void kill_processes( BOOL kill_desktop );
 
 static WCHAR windowsdir[MAX_PATH];
@@ -172,7 +173,9 @@ static void create_hardware_registry_keys(void)
                                     'S','y','s','t','e','m',0};
     static const WCHAR fpuW[] = {'F','l','o','a','t','i','n','g','P','o','i','n','t','P','r','o','c','e','s','s','o','r',0};
     static const WCHAR cpuW[] = {'C','e','n','t','r','a','l','P','r','o','c','e','s','s','o','r',0};
+    static const WCHAR FeatureSetW[] = {'F','e','a','t','u','r','e','S','e','t',0};
     static const WCHAR IdentifierW[] = {'I','d','e','n','t','i','f','i','e','r',0};
+    static const WCHAR ProcessorNameStringW[] = {'P','r','o','c','e','s','s','o','r','N','a','m','e','S','t','r','i','n','g',0};
     static const WCHAR SysidW[] = {'A','T',' ','c','o','m','p','a','t','i','b','l','e',0};
     static const WCHAR mhzKeyW[] = {'~','M','H','z',0};
     static const WCHAR VendorIdentifierW[] = {'V','e','n','d','o','r','I','d','e','n','t','i','f','i','e','r',0};
@@ -181,6 +184,8 @@ static void create_hardware_registry_keys(void)
     static const WCHAR PercentDW[] = {'%','d',0};
     static const WCHAR IntelCpuDescrW[] = {'x','8','6',' ','F','a','m','i','l','y',' ','%','d',' ','M','o','d','e','l',' ','%','d',
                                            ' ','S','t','e','p','p','i','n','g',' ','%','d',0};
+    static const WCHAR IntelCpuStringW[] = {'I','n','t','e','l','(','R',')',' ','P','e','n','t','i','u','m','(','R',')',' ','4',' ',
+                                            'C','P','U',' ','2','.','4','0','G','H','z',0};
     unsigned int i;
     HKEY hkey, system_key, cpu_key, fpu_key;
     SYSTEM_CPU_INFORMATION sci;
@@ -215,8 +220,10 @@ static void create_hardware_registry_keys(void)
         if (!RegCreateKeyExW( cpu_key, numW, 0, NULL, REG_OPTION_VOLATILE,
                               KEY_ALL_ACCESS, NULL, &hkey, NULL ))
         {
+            RegSetValueExW( hkey, FeatureSetW, 0, REG_DWORD, (BYTE *)&sci.FeatureSet, sizeof(DWORD) );
             set_reg_value( hkey, IdentifierW, idW );
             /*TODO; report amd's properly*/
+            set_reg_value( hkey, ProcessorNameStringW, IntelCpuStringW );
             set_reg_value( hkey, VendorIdentifierW, VenidIntelW );
             RegSetValueExW( hkey, mhzKeyW, 0, REG_DWORD, (BYTE *)&power_info.MaxMhz, sizeof(DWORD) );
             RegCloseKey( hkey );
@@ -308,6 +315,7 @@ static void create_volatile_environment_registry_key(void)
     static const WCHAR LogonServerW[] = {'L','O','G','O','N','S','E','R','V','E','R',0};
     static const WCHAR SessionNameW[] = {'S','E','S','S','I','O','N','N','A','M','E',0};
     static const WCHAR UserNameW[] = {'U','S','E','R','N','A','M','E',0};
+    static const WCHAR UserDomainW[] = {'U','S','E','R','D','O','M','A','I','N',0};
     static const WCHAR UserProfileW[] = {'U','S','E','R','P','R','O','F','I','L','E',0};
     static const WCHAR ConsoleW[] = {'C','o','n','s','o','l','e',0};
     static const WCHAR EmptyW[] = {0};
@@ -349,6 +357,7 @@ static void create_volatile_environment_registry_key(void)
     size = sizeof(computername) - 2;
     if (GetComputerNameW(&computername[2], &size))
     {
+        set_reg_value( hkey, UserDomainW, &computername[2] );
         computername[0] = computername[1] = '\\';
         set_reg_value( hkey, LogonServerW, computername );
     }
@@ -1119,10 +1128,35 @@ int main( int argc, char *argv[] )
     int end_session = 0, force = 0, init = 0, kill = 0, restart = 0, shutdown = 0, update = 0;
     HANDLE event;
     SECURITY_ATTRIBUTES sa;
+    BOOL is_wow64;
 
     GetWindowsDirectoryW( windowsdir, MAX_PATH );
     if( !SetCurrentDirectoryW( windowsdir ) )
         WINE_ERR("Cannot set the dir to %s (%d)\n", wine_dbgstr_w(windowsdir), GetLastError() );
+
+    if (IsWow64Process( GetCurrentProcess(), &is_wow64 ) && is_wow64)
+    {
+        STARTUPINFOW si;
+        PROCESS_INFORMATION pi;
+        WCHAR filename[MAX_PATH];
+        void *redir;
+        DWORD exit_code;
+
+        memset( &si, 0, sizeof(si) );
+        si.cb = sizeof(si);
+        GetModuleFileNameW( 0, filename, MAX_PATH );
+
+        Wow64DisableWow64FsRedirection( &redir );
+        if (CreateProcessW( filename, GetCommandLineW(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi ))
+        {
+            WINE_TRACE( "restarting %s\n", wine_dbgstr_w(filename) );
+            WaitForSingleObject( pi.hProcess, INFINITE );
+            GetExitCodeProcess( pi.hProcess, &exit_code );
+            ExitProcess( exit_code );
+        }
+        else WINE_ERR( "failed to restart 64-bit %s, err %d\n", wine_dbgstr_w(filename), GetLastError() );
+        Wow64RevertWow64FsRedirection( redir );
+    }
 
     while ((optc = getopt_long(argc, argv, short_options, long_options, NULL )) != -1)
     {
@@ -1142,7 +1176,11 @@ int main( int argc, char *argv[] )
 
     if (end_session)
     {
-        if (!shutdown_close_windows( force )) return 1;
+        if (kill)
+        {
+            if (!shutdown_all_desktops( force )) return 1;
+        }
+        else if (!shutdown_close_windows( force )) return 1;
     }
 
     if (kill) kill_processes( shutdown );

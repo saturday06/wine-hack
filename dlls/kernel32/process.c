@@ -541,6 +541,95 @@ static void set_additional_environment(void)
 }
 
 /***********************************************************************
+ *           set_wow64_environment
+ *
+ * Set the environment variables that change across 32/64/Wow64.
+ */
+static void set_wow64_environment(void)
+{
+    static const WCHAR archW[]    = {'P','R','O','C','E','S','S','O','R','_','A','R','C','H','I','T','E','C','T','U','R','E',0};
+    static const WCHAR arch6432W[] = {'P','R','O','C','E','S','S','O','R','_','A','R','C','H','I','T','E','W','6','4','3','2',0};
+    static const WCHAR x86W[] = {'x','8','6',0};
+    static const WCHAR versionW[] = {'M','a','c','h','i','n','e','\\',
+                                     'S','o','f','t','w','a','r','e','\\',
+                                     'M','i','c','r','o','s','o','f','t','\\',
+                                     'W','i','n','d','o','w','s','\\',
+                                     'C','u','r','r','e','n','t','V','e','r','s','i','o','n',0};
+    static const WCHAR progdirW[]   = {'P','r','o','g','r','a','m','F','i','l','e','s','D','i','r',0};
+    static const WCHAR progdir86W[] = {'P','r','o','g','r','a','m','F','i','l','e','s','D','i','r',' ','(','x','8','6',')',0};
+    static const WCHAR progfilesW[] = {'P','r','o','g','r','a','m','F','i','l','e','s',0};
+    static const WCHAR progw6432W[] = {'P','r','o','g','r','a','m','W','6','4','3','2',0};
+    static const WCHAR commondirW[]   = {'C','o','m','m','o','n','F','i','l','e','s','D','i','r',0};
+    static const WCHAR commondir86W[] = {'C','o','m','m','o','n','F','i','l','e','s','D','i','r',' ','(','x','8','6',')',0};
+    static const WCHAR commonfilesW[] = {'C','o','m','m','o','n','P','r','o','g','r','a','m','F','i','l','e','s',0};
+    static const WCHAR commonw6432W[] = {'C','o','m','m','o','n','P','r','o','g','r','a','m','W','6','4','3','2',0};
+
+    OBJECT_ATTRIBUTES attr;
+    UNICODE_STRING nameW;
+    WCHAR arch[64];
+    WCHAR *value;
+    HANDLE hkey;
+
+    /* set the PROCESSOR_ARCHITECTURE variable */
+
+    if (GetEnvironmentVariableW( arch6432W, arch, sizeof(arch)/sizeof(WCHAR) ))
+    {
+        if (is_win64)
+        {
+            SetEnvironmentVariableW( archW, arch );
+            SetEnvironmentVariableW( arch6432W, NULL );
+        }
+    }
+    else if (GetEnvironmentVariableW( archW, arch, sizeof(arch)/sizeof(WCHAR) ))
+    {
+        if (is_wow64)
+        {
+            SetEnvironmentVariableW( arch6432W, arch );
+            SetEnvironmentVariableW( archW, x86W );
+        }
+    }
+
+    attr.Length = sizeof(attr);
+    attr.RootDirectory = 0;
+    attr.ObjectName = &nameW;
+    attr.Attributes = 0;
+    attr.SecurityDescriptor = NULL;
+    attr.SecurityQualityOfService = NULL;
+    RtlInitUnicodeString( &nameW, versionW );
+    if (NtOpenKey( &hkey, KEY_READ | KEY_WOW64_64KEY, &attr )) return;
+
+    /* set the ProgramFiles variables */
+
+    if ((value = get_reg_value( hkey, progdirW )))
+    {
+        if (is_win64 || is_wow64) SetEnvironmentVariableW( progw6432W, value );
+        if (is_win64 || !is_wow64) SetEnvironmentVariableW( progfilesW, value );
+        HeapFree( GetProcessHeap(), 0, value );
+    }
+    if (is_wow64 && (value = get_reg_value( hkey, progdir86W )))
+    {
+        SetEnvironmentVariableW( progfilesW, value );
+        HeapFree( GetProcessHeap(), 0, value );
+    }
+
+    /* set the CommonProgramFiles variables */
+
+    if ((value = get_reg_value( hkey, commondirW )))
+    {
+        if (is_win64 || is_wow64) SetEnvironmentVariableW( commonw6432W, value );
+        if (is_win64 || !is_wow64) SetEnvironmentVariableW( commonfilesW, value );
+        HeapFree( GetProcessHeap(), 0, value );
+    }
+    if (is_wow64 && (value = get_reg_value( hkey, commondir86W )))
+    {
+        SetEnvironmentVariableW( commonfilesW, value );
+        HeapFree( GetProcessHeap(), 0, value );
+    }
+
+    NtClose( hkey );
+}
+
+/***********************************************************************
  *              set_library_wargv
  *
  * Set the Wine library Unicode argv global variables.
@@ -1124,6 +1213,7 @@ void CDECL __wine_kernel_init(void)
         set_registry_environment( got_environment );
         set_additional_environment();
     }
+    set_wow64_environment();
 
     if (!(peb->ImageBaseAddress = LoadLibraryExW( main_exe_name, 0, DONT_RESOLVE_DLL_REFERENCES )))
     {
@@ -1358,7 +1448,7 @@ static char **build_envp( const WCHAR *envW )
 static int fork_and_exec( const char *filename, const WCHAR *cmdline, const WCHAR *env,
                           const char *newdir, DWORD flags, STARTUPINFOW *startup )
 {
-    int fd[2], stdin_fd = -1, stdout_fd = -1;
+    int fd[2], stdin_fd = -1, stdout_fd = -1, stderr_fd = -1;
     int pid, err;
     char **argv, **envp;
 
@@ -1379,25 +1469,30 @@ static int fork_and_exec( const char *filename, const WCHAR *cmdline, const WCHA
 
     if (!(flags & (CREATE_NEW_PROCESS_GROUP | CREATE_NEW_CONSOLE | DETACHED_PROCESS)))
     {
-        HANDLE hstdin, hstdout;
+        HANDLE hstdin, hstdout, hstderr;
 
         if (startup->dwFlags & STARTF_USESTDHANDLES)
         {
             hstdin = startup->hStdInput;
             hstdout = startup->hStdOutput;
+            hstderr = startup->hStdError;
         }
         else
         {
             hstdin = GetStdHandle(STD_INPUT_HANDLE);
             hstdout = GetStdHandle(STD_OUTPUT_HANDLE);
+            hstderr = GetStdHandle(STD_ERROR_HANDLE);
         }
 
         if (is_console_handle( hstdin ))
             hstdin = wine_server_ptr_handle( console_handle_unmap( hstdin ));
         if (is_console_handle( hstdout ))
             hstdout = wine_server_ptr_handle( console_handle_unmap( hstdout ));
+        if (is_console_handle( hstderr ))
+            hstderr = wine_server_ptr_handle( console_handle_unmap( hstderr ));
         wine_server_handle_to_fd( hstdin, FILE_READ_DATA, &stdin_fd, NULL );
         wine_server_handle_to_fd( hstdout, FILE_WRITE_DATA, &stdout_fd, NULL );
+        wine_server_handle_to_fd( hstderr, FILE_WRITE_DATA, &stderr_fd, NULL );
     }
 
     argv = build_argv( cmdline, 0 );
@@ -1436,6 +1531,11 @@ static int fork_and_exec( const char *filename, const WCHAR *cmdline, const WCHA
                 dup2( stdout_fd, 1 );
                 close( stdout_fd );
             }
+            if (stderr_fd != -1)
+            {
+                dup2( stderr_fd, 2 );
+                close( stderr_fd );
+            }
         }
 
         /* Reset signals that we previously set to SIG_IGN */
@@ -1453,6 +1553,7 @@ static int fork_and_exec( const char *filename, const WCHAR *cmdline, const WCHA
     HeapFree( GetProcessHeap(), 0, envp );
     if (stdin_fd != -1) close( stdin_fd );
     if (stdout_fd != -1) close( stdout_fd );
+    if (stderr_fd != -1) close( stderr_fd );
     close( fd[1] );
     if ((pid != -1) && (read( fd[0], &err, sizeof(err) ) > 0))  /* exec failed */
     {
@@ -2005,55 +2106,11 @@ static LPWSTR get_file_name( LPCWSTR appname, LPWSTR cmdline, LPWSTR buffer,
 }
 
 
-/**********************************************************************
- *       CreateProcessA          (KERNEL32.@)
- */
-BOOL WINAPI DECLSPEC_HOTPATCH CreateProcessA( LPCSTR app_name, LPSTR cmd_line, LPSECURITY_ATTRIBUTES process_attr,
-                                              LPSECURITY_ATTRIBUTES thread_attr, BOOL inherit,
-                                              DWORD flags, LPVOID env, LPCSTR cur_dir,
-                                              LPSTARTUPINFOA startup_info, LPPROCESS_INFORMATION info )
-{
-    BOOL ret = FALSE;
-    WCHAR *app_nameW = NULL, *cmd_lineW = NULL, *cur_dirW = NULL;
-    UNICODE_STRING desktopW, titleW;
-    STARTUPINFOW infoW;
-
-    desktopW.Buffer = NULL;
-    titleW.Buffer = NULL;
-    if (app_name && !(app_nameW = FILE_name_AtoW( app_name, TRUE ))) goto done;
-    if (cmd_line && !(cmd_lineW = FILE_name_AtoW( cmd_line, TRUE ))) goto done;
-    if (cur_dir && !(cur_dirW = FILE_name_AtoW( cur_dir, TRUE ))) goto done;
-
-    if (startup_info->lpDesktop) RtlCreateUnicodeStringFromAsciiz( &desktopW, startup_info->lpDesktop );
-    if (startup_info->lpTitle) RtlCreateUnicodeStringFromAsciiz( &titleW, startup_info->lpTitle );
-
-    memcpy( &infoW, startup_info, sizeof(infoW) );
-    infoW.lpDesktop = desktopW.Buffer;
-    infoW.lpTitle = titleW.Buffer;
-
-    if (startup_info->lpReserved)
-      FIXME("StartupInfo.lpReserved is used, please report (%s)\n",
-            debugstr_a(startup_info->lpReserved));
-
-    ret = CreateProcessW( app_nameW, cmd_lineW, process_attr, thread_attr,
-                          inherit, flags, env, cur_dirW, &infoW, info );
-done:
-    HeapFree( GetProcessHeap(), 0, app_nameW );
-    HeapFree( GetProcessHeap(), 0, cmd_lineW );
-    HeapFree( GetProcessHeap(), 0, cur_dirW );
-    RtlFreeUnicodeString( &desktopW );
-    RtlFreeUnicodeString( &titleW );
-    return ret;
-}
-
-
-/**********************************************************************
- *       CreateProcessW          (KERNEL32.@)
- */
-BOOL WINAPI DECLSPEC_HOTPATCH CreateProcessW( LPCWSTR app_name, LPWSTR cmd_line, LPSECURITY_ATTRIBUTES process_attr,
-                                              LPSECURITY_ATTRIBUTES thread_attr, BOOL inherit, DWORD flags,
-                                              LPVOID env, LPCWSTR cur_dir, LPSTARTUPINFOW startup_info,
-                                              LPPROCESS_INFORMATION info )
+/* Steam hotpatches CreateProcessA and W, so to prevent it from crashing use an internal function */
+static BOOL create_process_impl( LPCWSTR app_name, LPWSTR cmd_line, LPSECURITY_ATTRIBUTES process_attr,
+                                 LPSECURITY_ATTRIBUTES thread_attr, BOOL inherit, DWORD flags,
+                                 LPVOID env, LPCWSTR cur_dir, LPSTARTUPINFOW startup_info,
+                                 LPPROCESS_INFORMATION info )
 {
     BOOL retv = FALSE;
     HANDLE hFile = 0;
@@ -2181,6 +2238,61 @@ BOOL WINAPI DECLSPEC_HOTPATCH CreateProcessW( LPCWSTR app_name, LPWSTR cmd_line,
     if (retv)
         TRACE( "started process pid %04x tid %04x\n", info->dwProcessId, info->dwThreadId );
     return retv;
+}
+
+
+/**********************************************************************
+ *       CreateProcessA          (KERNEL32.@)
+ */
+BOOL WINAPI DECLSPEC_HOTPATCH CreateProcessA( LPCSTR app_name, LPSTR cmd_line, LPSECURITY_ATTRIBUTES process_attr,
+                                              LPSECURITY_ATTRIBUTES thread_attr, BOOL inherit,
+                                              DWORD flags, LPVOID env, LPCSTR cur_dir,
+                                              LPSTARTUPINFOA startup_info, LPPROCESS_INFORMATION info )
+{
+    BOOL ret = FALSE;
+    WCHAR *app_nameW = NULL, *cmd_lineW = NULL, *cur_dirW = NULL;
+    UNICODE_STRING desktopW, titleW;
+    STARTUPINFOW infoW;
+
+    desktopW.Buffer = NULL;
+    titleW.Buffer = NULL;
+    if (app_name && !(app_nameW = FILE_name_AtoW( app_name, TRUE ))) goto done;
+    if (cmd_line && !(cmd_lineW = FILE_name_AtoW( cmd_line, TRUE ))) goto done;
+    if (cur_dir && !(cur_dirW = FILE_name_AtoW( cur_dir, TRUE ))) goto done;
+
+    if (startup_info->lpDesktop) RtlCreateUnicodeStringFromAsciiz( &desktopW, startup_info->lpDesktop );
+    if (startup_info->lpTitle) RtlCreateUnicodeStringFromAsciiz( &titleW, startup_info->lpTitle );
+
+    memcpy( &infoW, startup_info, sizeof(infoW) );
+    infoW.lpDesktop = desktopW.Buffer;
+    infoW.lpTitle = titleW.Buffer;
+
+    if (startup_info->lpReserved)
+      FIXME("StartupInfo.lpReserved is used, please report (%s)\n",
+            debugstr_a(startup_info->lpReserved));
+
+    ret = create_process_impl( app_nameW, cmd_lineW, process_attr, thread_attr,
+                               inherit, flags, env, cur_dirW, &infoW, info );
+done:
+    HeapFree( GetProcessHeap(), 0, app_nameW );
+    HeapFree( GetProcessHeap(), 0, cmd_lineW );
+    HeapFree( GetProcessHeap(), 0, cur_dirW );
+    RtlFreeUnicodeString( &desktopW );
+    RtlFreeUnicodeString( &titleW );
+    return ret;
+}
+
+
+/**********************************************************************
+ *       CreateProcessW          (KERNEL32.@)
+ */
+BOOL WINAPI DECLSPEC_HOTPATCH CreateProcessW( LPCWSTR app_name, LPWSTR cmd_line, LPSECURITY_ATTRIBUTES process_attr,
+                                              LPSECURITY_ATTRIBUTES thread_attr, BOOL inherit, DWORD flags,
+                                              LPVOID env, LPCWSTR cur_dir, LPSTARTUPINFOW startup_info,
+                                              LPPROCESS_INFORMATION info )
+{
+    return create_process_impl( app_name, cmd_line, process_attr, thread_attr,
+                                inherit, flags, env, cur_dir, startup_info, info);
 }
 
 

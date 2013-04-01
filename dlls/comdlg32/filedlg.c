@@ -2256,14 +2256,11 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
             /* if no extension is specified with file name, then */
             /* attach the extension from file filter or default one */
             
-            WCHAR *filterExt = NULL;
+            const WCHAR *filterExt = NULL;
             LPWSTR lpstrFilter = NULL;
             static const WCHAR szwDot[] = {'.',0};
             int PathLength = lstrlenW(lpstrPathAndFile);
 
-            /* Attach the dot*/
-            lstrcatW(lpstrPathAndFile, szwDot);
-    
             /*Get the file extension from file type filter*/
             lpstrFilter = (LPWSTR) CBGetItemDataPtr(fodInfos->DlgInfos.hwndFileTypeCB,
                                              fodInfos->ofnInfos->nFilterIndex-1);
@@ -2272,9 +2269,18 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
                 filterExt = PathFindExtensionW(lpstrFilter);
 
             if ( filterExt && *filterExt ) /* attach the file extension from file type filter*/
-                lstrcatW(lpstrPathAndFile, filterExt + 1);
+                filterExt = filterExt + 1;
             else if ( fodInfos->defext ) /* attach the default file extension*/
-                lstrcatW(lpstrPathAndFile, fodInfos->defext);
+                filterExt = fodInfos->defext;
+
+            /* If extension contains a glob, ignore it */
+            if ( filterExt && !strchrW(filterExt, '*') && !strchrW(filterExt, '?') )
+            {
+                /* Attach the dot*/
+                lstrcatW(lpstrPathAndFile, szwDot);
+                /* Attach the extension */
+                lstrcatW(lpstrPathAndFile, filterExt );
+            }
 
             /* In Open dialog: if file does not exist try without extension */
             if (!(fodInfos->DlgInfos.dwDlgProp & FODPROP_SAVEDLG) && !PathFileExistsW(lpstrPathAndFile))
@@ -3128,6 +3134,9 @@ static int FILEDLG95_LOOKIN_InsertItemAfterParent(HWND hwnd,LPITEMIDLIST pidl)
   int iParentPos;
 
   TRACE("\n");
+
+  if (pidl == pidlParent)
+    return -1;
 
   iParentPos = FILEDLG95_LOOKIN_SearchItem(hwnd,(WPARAM)pidlParent,SEARCH_PIDL);
 

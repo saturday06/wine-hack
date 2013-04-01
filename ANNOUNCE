@@ -1,18 +1,13 @@
-The Wine team is proud to announce that the stable release Wine 1.2 is
-now available.
+The Wine maintenance release 1.2.3 is now available.
 
-This release represents two years of development effort and over
-23,000 changes. The main highlights are the support for 64-bit
-applications, and the new graphics based on the Tango standard.
-
-It also contains a lot of improvements across the board, and over
-3,000 bug fixes. See the release notes below for a summary of the
-major changes.
+What's new in this release (see below for details):
+  - Translation updates.
+  - Various bug fixes.
 
 The source is available from the following locations:
 
-  http://ibiblio.org/pub/linux/system/emulators/wine/wine-1.2.tar.bz2
-  http://prdownloads.sourceforge.net/wine/wine-1.2.tar.bz2
+  http://ibiblio.org/pub/linux/system/emulators/wine/wine-1.2.3.tar.bz2
+  http://prdownloads.sourceforge.net/wine/wine-1.2.3.tar.bz2
 
 Binary packages for various distributions will be available from:
 
@@ -28,474 +23,333 @@ AUTHORS in the distribution for the complete list.
 
 ----------------------------------------------------------------
 
-What's new in Wine 1.2
-======================
-
-*** Core functionality
-
-- Loading and running 64-bit Windows applications is now supported on
-  x86-64 processors (only on Linux at this point).
-
-- There are now two flavors of Wine prefixes, 32-bit and
-  64-bit. 32-bit prefixes only support 32-bit applications, while
-  64-bit prefixes support both 32-bit and 64-bit applications. The
-  prefix flavor is set at prefix creation time and cannot be changed
-  afterwards, since all the files and registry entries are in
-  different locations. Backwards compatibility is ensured by
-  considering all prefixes created with older Wine versions to be
-  32-bit.
-
-- WoW64 file system redirection is supported now. When running a
-  32-bit application in a 64-bit prefix, accesses to the
-  window/system32 directory are automatically redirected to
-  windows/syswow64.
-
-- WoW64 registry redirection is now supported in 64-bit prefixes. This
-  allows both 32-bit and 64-bit applications to set platform-specific
-  registry keys without stepping on each other.
-
-- All the 16-bit support code has been moved to a set of independent
-  16-bit modules. No 16-bit code is loaded or initialized when running
-  a standard Win32 application, unless it starts making 16-bit calls.
-
-- The mount manager now reports the actual UUID for disk devices that
-  support it instead of a hard-coded one.
-
-- Symbolic links are now supported in the registry.
-
-- The C runtime libraries msvcr80, msvcr90 and msvcr100 used by recent
-  Visual C++ versions are now partially implemented.
-
-- Some functions now use a Microsoft-compatible function prologue when
-  building with a recent enough gcc. This allows Steam overlays to
-  work.
-
-
-*** User interface
-
-- There are new icons for all the built-in applications, as well as
-  for the standard toolbars and images. The icons are based on the
-  Tango set for a nicer integration with the native Unix desktop look.
-
-- Animated cursors can now be loaded, though only the first frame of
-  the animation is used as a static cursor.
-
-- The mouse cursor is now updated correctly in applications that
-  create windows from different threads, like Internet Explorer.
-
-- The standard print and page setup dialogs are working much better
-  now.
-
-- There is now an application wizard control panel to manage installed
-  applications.
-
-- Rendering of bi-directional text is now supported reasonably
-  well. There is also some support for Arabic text shaping.
-
-- Many features of the RichEdit control are improved, particularly
-  support for tables, URL detection, cursor positioning, scrollbar
-  management, and support for windowless controls.
-
-- Many common controls work better now, particularly the listview,
-  calendar and tab controls.
-
-- There is now a partial implementation of the Microsoft Text Services
-  framework, which provides better input method support in modern
-  applications.
-
-- There is now a proper user interface for importing, exporting and
-  managing cryptographic keys and certificates.
-
-- Wine is now fully translated to French, German, Dutch, Italian,
-  Portuguese, Romanian, Polish, Lithuanian, Norwegian, and Korean. It
-  has partial translations for another twenty languages.
-
-
-*** Desktop integration
-
-- The XDG standard for application startup notification is now
-  implemented.
-
-- The NET_WORKAREA property is now supported to let applications take
-  into account the size of the Unix desktop task bars.
-
-- File associations created by a Windows applications are now
-  registered with the Unix desktop.
-
-- Application icons are now set with the NET_WM_ICON hint, which
-  enables alpha channel transparency under window managers that
-  support it.
-
-- Maximizing a window from the Unix window manager is now detected and
-  the state is correctly reflected on the Windows application side.
-
-- The XDG desktop screen saver is now launched when a Windows
-  application makes a request to start the screen saver.
-
-- Start Menu entries are now properly removed when an application is
-  uninstalled.
-
-- Copying and pasting images between Windows and Unix applications
-  works more reliably now, and more image formats are supported.
-
-- Launching an external Unix Web browser from a Windows application
-  now works correctly.
-
-- MSI files are now associated with Wine to enable launching them
-  directly from the desktop.
-
-- The virtual desktop window now switches to full-screen mode when its
-  size matches that of the screen.
-
-- The strange window management behavior used by Delphi-generated
-  applications is better supported now.
-
-
-*** Graphics
-
-- Subpixel font rendering is now supported, which greatly improves
-  text appearance on LCD screens. The subpixel configuration is
-  derived from the system fontconfig and Xft settings.
-
-- Icons with alpha channels are now properly blended in, for a much
-  nicer appearance.
-
-- Image lists now properly store the alpha channel of images and use
-  it when displaying them.
-
-- The windowscodecs dll has been added, with codecs for the JPEG, GIF,
-  PNG, BMP, ICO, and TIFF image formats.
-
-- Many functions are now implemented in GDIPlus. The gdiplus dll is
-  now considered good enough to load the built-in version by default.
-
-- Overlays are now supported in DirectDraw.
-
-- Many more capabilities are now supported in the SANE scanner
-  backend. This improves scanning support in Acrobat.
-
-
-*** Audio
-
-- The openal32 dll is now implemented, as a wrapper around the Unix
-  OpenAL library.
-
-- There is now an initial implementation of the mmdevapi dll (part of
-  the new Vista sound architecture), using OpenAL for sound I/O.
-
-- The msgsm32.acm GSM codec is now supported.
-
-- The ALSA sound driver now works better with PulseAudio's ALSA
-  emulation.
-
-- Digital playback of audio CDs is now supported.
-
-
-*** Internet and networking
-
-- The HTTP protocol implementation has seen many improvements, in
-  particular better handling of proxies and redirects, better cookie
-  management, support for gzip encoding, fixes for chunked transfer
-  mode, support for IPv6 addresses, and better certificate validation
-  on secure connections.
-
-- The Gecko HTML engine has been updated to a more recent upstream
-  version. Many more HTML objects are now implemented.
-
-- The RPC layer now properly supports server-side authentication and
-  impersonation. The COM marshalling/unmarshalling is also more
-  compatible. RPC is now supported over the HTTP protocol too.
-
-- There is now an essentially complete implementation of the
-  JavaScript language.
-
-- The IRDA network protocol is now supported by the socket layer.
-
-- The inetmib1 dll is now implemented, with support for the standard
-  SNMP MIB tables.
-
-- The inetcomm dll now implements the POP3 and SMTP protocols, as well
-  as better MIME support.
-
-- Extended mail providers are now better supported, particularly the
-  native Outlook provider. Mail attachments are also supported now.
-
-- Many undocumented functions in the shlwapi dll have been implemented
-  for improved Internet Explorer support.
-
-
-*** Direct3D
-
-- FBOs are now used by default for off-screen rendering in Direct3D.
-
-- Backbuffers larger/smaller than their associated window are now
-  correctly stretched.
-
-- A large portion of the d3dx9 dlls is now implemented, most notably
-  the shader assembler, .x file support, functions for fonts, general
-  3D math, mesh handling, and sprites. A start has been made with the
-  texture and effect functions.
-
-- Fog handling has improved a lot.
-
-- Various YUV texture formats are now supported.
-
-- wined3d contexts are now managed per-thread, and play nice both with
-  other wined3d instances and opengl32 GL contexts. Contexts are
-  checked for validity before being used (e.g. if the associated
-  window is destroyed.)
-
-- Point sprite handling has improved a lot.
-
-- The shader source is now dumped on GLSL compile/link failures. This
-  is mostly to help driver developers, like Mesa, with investigating
-  GLSL bugs triggered by Wine.
-
-- The graphics card detection code is improved, and many more graphics
-  cards are now recognized.
-
-- User clip planes are now supported in shaders. This allows proper
-  water reflections in Half-Life 2.
-
-- There is now an initial implementation of Direct3D 10, including the
-  dxgi, d3d10core and d3d10 dlls.  Most of the work so far has gone
-  into parsing d3d10 effects and SM4 shaders.
-
-- Shadow samplers are now properly supported. This fixes shadows in
-  StarCraft 2.
-
-- There is now a shader based implementation of D3D fixed function
-  fragment processing. This avoids some limitations of the previous
-  OpenGL fixed function based approach.
-
-- Partial updates of surfaces with compressed formats are now properly
-  supported.
-
-- Many new OpenGL extensions are now supported. These include:
-
-   - EXT_provoking_vertex/ARB_provoking_vertex. This allows the
-     correct vertex color to be used when flat shading is enabled, and
-     helps Civilization IV in particular.
-
-   - EXT_vertex_array_bgra/ARB_vertex_array_bgra. This allows for more
-     efficient handling of BGRA (D3DCOLOR) data in the fixed function
-     pipeline.
-
-   - EXT_draw_buffers2. This enables independent color write masks
-     when multiple (simultaneous) render targets are in use.
-
-   - Various nVidia extensions to ARB vertex/fragment programs. These
-     allow SM3 support with the ARB vertex/fragment program shader
-     backend.
-
-   - EXT_texture_compression_rgtc. This adds support for the ATI2N
-     (also known as 3Dc) compressed texture format.
-
-   - ARB_texture_rg. This allows for more efficient support of the
-     R16F, G16R16F, R32F and G32R32F texture formats.
-
-   - ARB_framebuffer_object. This is mostly the same as the existing
-     support for EXT_framebuffer_object, but improves rendering with a
-     depth/stencil buffer larger than the color buffer(s). It helps
-     (among others) Splinter Cell,
-
-   - ARB_sync. This adds support for multi-threaded / cross GL context
-     event queries used by Dragon Age: Origins.
-
-   - ARB_half_float_vertex. This adds support for 16-bit floating
-     point vertex formats on cards that don't already support
-     NV_half_float. It helps Supreme Commander.
-
-- There is now a general framework for supporting variations/quirks in
-  GL drivers.
-
-
-*** Built-in applications
-
-- The Wine debugger now displays a crash dialog to let the user know
-  that a crash happened before dumping the backtrace information.
-
-- The Wine debugger now uses the Dwarf exception unwinding data for
-  more reliable backtraces.
-
-- The file dialogs in built-in applications are now resizable.
-
-- Regedit can now import from and export to files in Unicode format.
-
-- Wineboot now displays a dialog while creating or updating the prefix
-  directory to let the user know that something is happening, since
-  the update can take some time, particularly with 64-bit prefixes.
-
-- Text replacement is now implemented in Notepad.
-
-- The print preview feature in Wordpad now works much better.
-
-- Navigation in help files now works better in Winhelp. Many graphical
-  glitches have also been fixed.
-
-- The Winecfg dialogs have been tweaked so that the application is
-  usable in a 640x480 desktop. The About panel has been redesigned
-  with better graphics.
-
-- The command-line parser in cmd.exe is more compatible now, which
-  should enable more Windows batch files to execute correctly. There
-  is also a regression test suite for it.
-
-- Rpcss now implements a proper RPC endpoint mapper.
-
-
-*** Build environment
-
-- The Wine IDL compiler can now generate correct code for all the
-  standard IDL files, including proper exception handling. A large
-  number of COM proxies and servers are now automatically generated
-  from their IDL definitions.
-
-- The fake dll placeholders are now built at compile time, instead of
-  being generated every time a Wine prefix is created. This makes it
-  possible to install a placeholder for every supported dll, which
-  should avoid many failures in installers that check dll versions.
-
-- configure now supports the --disable-tests option to prevent
-  building the test suite. This allows for faster compile times,
-  particularly when bisecting a regression.
-
-- The cross-compiled tests are now built against the Wine import
-  libraries instead of the Mingw ones. The latter are not compatible
-  enough for our needs.
-
-- winegcc now handles resource files just like normal object files and
-  links them into the final binary without requiring special build
-  rules.
-
-- winebuild and winegcc now fully support Solaris.
-
-- Wine now builds properly on Cygwin, though some of the resulting
-  binaries do not work correctly.
-
-- Makefiles are now created as needed during the build process,
-  instead of being all created together at configure time. This makes
-  it unnecessary to run 'make depend' in most cases.
-
-- winemaker now has better support for Visual C++ project files.
-
-
-*** Miscellaneous
-
-- The OLE storage implementation now supports transacted storage, with
-  proper commits and rollbacks. This enables support for Microsoft
-  Office documents containing macros.
-
-- The MSI installer now supports patches, which enables the
-  installation of service packs for many applications. Many more MSI
-  standard actions are also supported now.
-
-- The rsaenh dll now supports the SHA-256, SHA-384, and SHA-512
-  encryption algorithms, as well as CALG_SSL3_SHAMD5 hashing.
-
-- OLE database objects are now implemented, which fixes the clipart
-  functionality in Microsoft Office 2007.
-
-- Copying and pasting OLE objects across applications works better now.
-
-- Support for cryptographic signatures and certificates is improved,
-  including support for certificate trust lists.
-
-- The Task Scheduler service is now implemented.
-
-
-*** Performance
-
-- Bitmap stretching and alpha blending is now done through Xrender
-  when possible, which avoids a time-consuming round-trip of the
-  bitmap bits from the X server.
-
-- Startup time for MSI installers that contain a large amount of
-  strings is much improved.
-
-- Setting the processor affinity for threads or processes is now
-  supported, which improves multi-core performance for applications
-  that take advantage of it.
-
-- Loading large symbol tables in the Wine debugger is much faster
-  now.
-
-- FBO handling has improved significantly. Recently used FBO
-  configurations are now cached, which is a major performance
-  improvement.
-
-- Loading shader constants is more efficient now. This improves
-  performance for (among others) Half-Life 2, Counter Strike: Source,
-  and Source Engine games in general.
-
-- The performance of sRGB samples is improved, this particularly helps
-  Source Engine games.
-
-
-*** Platform-specific changes
-
-- Joysticks POV switch and axis remapping are now better supported on
-  Linux. Joysticks are now supported on Mac OS X too.
-
-- The various DVD I/O controls are now implemented on Mac OS X.
-
-- The network routing and statistics functions in iphlpapi are now
-  implemented on Solaris and FreeBSD.
-
-- Mach-O debugging symbols (the format used by Mac OS X) are now
-  supported in the debugger.
-
-- Event ports are now used on Solaris for improved wineserver
-  performance.
-
-
-*** New library dependencies
-
-- The libgnutls library is now used for encryption and certificate
-  validation in secur32.
-
-- The libgsm library is now used for the GSM codec support.
-
-- The libmpg123 library is now used for mp3 decoding (except on Mac OS
-  X where CoreAudio functions are used instead).
-
-- The libopenal library is now used for the openal32 dll
-  implementation, as well as for the mmdevapi dll (Vista sound
-  support).
-
-- The libtiff library is now used for TIFF image decoding in the
-  windowscodecs dll.
-
-- The libv4l1 library is now used for video capture in DirectShow.
-
-
-*** Backwards compatibility
-
-- The wineshelllink helper script has been removed. All the menu and
-  desktop integration is now handled by winemenubuilder.
-
-- The deprecated wineprefixcreate script has been removed. Wine prefix
-  directories are created automatically as needed.
-
-- Old LinuxThreads setups are no longer supported. Wine now requires
-  the modern NPTL threading that has been standard on Linux for many
-  years now.
-
-- The PBuffer option for off-screen rendering has been removed from
-  Direct3D. This code was unmaintained, and offered little advantage
-  over the "fbo" or "backbuffer" modes.
-
-
-*** Known issues with recent 1.2 changes
-
-- The subpixel font rendering doesn't yet look quite as nice as that
-  used by the rest of the Unix desktop.
-
-- The OLE storage performance can degrade pretty badly on files with a
-  particular layout.
-
-- There is no 64-bit version of the Gecko engine yet, so 64-bit
-  applications that use a browser control won't work correctly.
+Bugs fixed in 1.2.3:
+
+   4432  Blobby Volley - corrupted graphics
+   8640  Oziexplorer Save Image Problem
+  10140  Most grayscale JPEGs cause abnormal rendering artifacts in CDisplay
+  12808  indexed bitmaps support is broken
+  14882  UpdateResource fails to delete a resource
+  15025  HxD crashes on opening disk
+  16703  Wineconsole: Fallback from curses to window based backend
+  16704  wineconsole: Allow specifying the console backend to use when wineconsole is launched implicitly
+  18075  IE8 crashes due to missing urlmon.dll.423 API
+  19314  IE8 for Server 2003 refuses to install (Service Pack 2 for Windows Server 2003 install required)
+  20552  Memory leak in alloc_thread_tls?
+  23872  Steam: Windows will automatically reopen after being closed
+  24294  corrupted icons in SolidWorks sketches
+  24680  loader: segfault after  loading krnl386.exe, while LoadLibraryEx for any buildin dll
+  24800  wine try to use float texture even if driver don't support them
+  25107  When panning on SeaClear, bits of the chart get 'left behind'
+  25155  Creative Writer 2 only installs in Win9x modes on WoW64
+  25206  Anarchy Online v18.4, Ingame browser crashes (Awesomium.dll)
+  25273  msvcrt/misc.ok I10_OUTPUT long double crash with winetest.exe, not make test
+  25283  Unimplemented function urlmon.dll.410
+  25301  Occasional sock_check_pollhup() error on Solaris
+  25354  King's Quest Collection Series (1997): setup.exe crashes
+  25401  WSAStringToAddress doesn't update lpAddressLength on success
+  25491  BearShare: Fails to install
+  25510  Wine-generated desktop files are not compliant with XDG standard
+  25583  Starcraft II fails to start
+  25616  Comet Busters: Error displays indicating Wine cannot continue
+  25678  'Wine reg add' with longer hive name error
+  25680  Stale file associations are not properly removed
+  25685  When printing diagrams & charts in Family Historian 4.1.3 characters are upside down
+  25691  ImageList_Duplicate doesn't correctly duplicate full length of has_alpha byte array
+  25910  Notepad tries to open a file using wrong sharing mode
+  26014  Printing produces garbled output, characters rotated and sliced.
+  26281  regedit: Doesn't export decent newline in Unicode (NT5) Format.
+  26367  Winecfg crashes when selecting Graphics tab
+  26393  Temple of Elemental Evil refuses to run
+  26505  file associations built by winemenubuilder lack wineprefix
+
+----------------------------------------------------------------
+
+Changes since 1.2.2:
+
+Akihiro Sagawa (1):
+      regedit: Export a decent newline in Unicode format.
+
+Albert Pool (1):
+      winecfg: Update Dutch translation.
+
+Alexander Kochetkov (3):
+      wineps.drv: Disable world transform for fonts in GM_COMPATIBLE mode.
+      wineps.drv: All map modes should have inverted y-transforms.
+      gdi32: Fix scaling factors for EMR_EXTTEXTOUTW.
+
+Alexander Law (1):
+      programs/notepad: Correct sharing mode for opening file in notepad.
+
+Alexandre Julliard (29):
+      winex11: Only map the window the first time that WS_VISIBLE is set through WM_SETREDRAW.
+      kernel32: Update the environment variables that vary across 32-bit/64-bit/Wow64.
+      wine.inf: Don't set the ProgramFiles environment variables through the registry.
+      ntdll: Ensure alignment of static TLS data and free it at thread exit.
+      ntdll: Don't worry about the DOS area on non-x86.
+      wineboot: Relaunch the 64-bit version of wineboot on Wow64.
+      winecfg: Relaunch the 64-bit version of winecfg on Wow64.
+      winecfg: Set Wow64 registry keys as well as the 64-bit ones for version information.
+      krnl386: Fetch version from the PEB to avoid potentially using GetVersionEx before it's initialized.
+      loader: Make sure the new stack is 16-byte aligned in the preloader.
+      wpp: Line and column numbers must start at one.
+      advapi32: Fix array size construct that gcc doesn't like.
+      libwine: Fix handling of null character in vsnprintfW for %c format.
+      libwine: Fall back to normal exec if the preloader doesn't exist.
+      comctl32/imagelist: Don't change destination size in ImageList_Duplicate without corresponding allocation.
+      wmc: Add support for creating resource and plain binary files.
+      makefiles: Generate .res files directly from message files.
+      configure: Print a notice if zlib isn't found.
+      server: Create anonymous file mappings in the config directory if the server directory is mounted noexec.
+      winebuild: Don't remove stdcall decorations on non-x86.
+      ntdll: Don't print an error when architecture is set to win64 and the app is 64-bit.
+      wine.inf: Put some fake dlls in the right place for WoW64.
+      server: Work around Mac OS not being able to set global breakpoint flags.
+      winex11: Don't unmap off-screen windows on PropertyNotify events.
+      version: Allocate the full virtual size of the section when loading PE resources.
+      shlwapi: Don't use wide strings in button labels.
+      msrle32: Fix invalid character in resource wide string.
+      Update copyright info for 2011.
+      Updated the authors list.
+
+Alistair Leslie-Hughes (1):
+      oleaut32: Implement ITypeInfo_GetNames Stub/Proxy.
+
+Andrew Eikum (1):
+      include: Add defines for KSDATAFORMAT_SUBTYPE_ALAW and _MULAW.
+
+Andrew Nguyen (6):
+      wineboot: Set the FeatureSet value in the volatile CPU registry keys.
+      wineboot: Set a placeholder ProcessorNameString value in the volatile CPU registry keys.
+      mmsystem.dll16: Correctly map the MCI_SYSINFO_PARMS structure when MCI_SYSINFO_QUANTITY is set.
+      reg: Accept full names of the standard registry hives.
+      include: Add an extern C++ block around the property key equality operators.
+      server: Filter the WOW64 registry access flags before performing the access check.
+
+André Hentschel (11):
+      ntdll: Respect multiple CPUs when faking values.
+      msvcrt: Forward _setjmp on x86_64.
+      mountmgr.sys: Handle IOCTL_DISK_GET_DRIVE_GEOMETRY_EX.
+      winemaker: Fix library argument.
+      shlwapi: Implement wow64 reporting.
+      sane.ds: Convert Swedish translation to UTF-8.
+      sane.ds: Convert Norwegian translation to UTF-8.
+      gphoto2.ds: Fix German translation.
+      sane.ds: Fix translation of microsecond.
+      include: Add winhttp secure protocol flags.
+      include: Add more minor shutdown reasons.
+
+Aric Stewart (2):
+      ws2_32: async_send with no buffers does not need to do any work.
+      user32: Remove SetWindowText export.
+
+Austin English (3):
+      ntdll: Bump win2k3 version information to sp2.
+      urlmon: Add stubs for ordinals 410 and 423.
+      msiexec: Add /unreg as an alias for /z.
+
+Charles Davis (2):
+      ntdll: Fix IOCTL_CDROM_RAW_READ on Mac OS.
+      ntdll: Implement CDROM_GetInterfaceInfo() on Mac OS.
+
+Cheer Xiao (1):
+      view: Update simplified Chinese translation.
+
+Damian Dixon (1):
+      advapi32: Added check for NULL pointer being passed to QueryServiceStatus for either parameter.
+
+Damjan Jovanovic (1):
+      winemenubuilder: Do not skip entries when cleaning up file open associations.
+
+Dan Kegel (1):
+      winemenubuilder: File associations should set wineprefix.
+
+David Bartley (1):
+      iphlpapi: Add CancelIPChangeNotify stub.
+
+David Hedberg (1):
+      gdi32: Stay within the clipping area when painting text background.
+
+Dmitry Timoshkov (5):
+      winex11.drv: Make sure that default clipping region exists before calling ExcludeUpdateRgn().
+      winex11.drv: Associate the real DC transformation with cached font data.
+      gdi32: Use graphics mode specified at the EMF creation time when playing EMR_EXTTEXTOUT record.
+      gdi32: EnumFontFamilies should also match against fully qualified face name.
+      winecfg: Protect from closing the root key.
+
+Eric Pouech (3):
+      winedbg: Don't print extra \n in print_basic.
+      winegcc: Correctly manage the -V option (gcc expects to be among the first ones, with -b).
+      winegcc: Check that option argument is within command line parameters.
+
+Francois Gouget (2):
+      server: Make sock_check_pollhup() more reliable on Solaris.
+      xcopy: Remove a space before a '\n' in the Korean translation.
+
+Gerald Pfeifer (3):
+      wpp: Fix the output type for the "unsigned OP signed" cases in BIN_OP_INT and friends.
+      wpp: Add explicit casts when mixing signed and unsigned integers.
+      wpp: Add explicit casts when mixing unsigned and signed integers.
+
+Hans Leidekker (6):
+      ntdll: Don't call NtClose directly in delete_view.
+      advapi32: Return the computer name as referenced domain name in LookupAccountName.
+      wineboot: Set the USERDOMAIN environment variable.
+      uninstaller: Run msiexec if the WindowsInstaller value is set.
+      uninstaller: Fix a leak.
+      appwiz.cpl: Run msiexec if the WindowsInstaller value is set.
+
+Henri Verbeet (3):
+      kernel32: Fix some memory leaks in set_wow64_environment().
+      widl: Support forward type declarations.
+      wined3d: Don't use floating point textures without ARB_texture_float.
+
+Huw Davies (10):
+      fonts: Fix the metrics of the extended integral and brace glyphs.
+      fonts: Increase the version number so that we don't use the Mac's version of symbol.ttf, which doesn't contain a Microsoft Symbol charmap.
+      gdi32: Clear the accel flags.
+      wineps.drv: Explicitly report that we do not support blending.
+      widl: Initialise [out] only parameters if they are user types or interface pointers.
+      widl: Don't dereference if the referenced type is a user type.
+      widl: Initialise [out] only conformant arrays.
+      oleaut32: Mask off the lsb from the vtbl offset. This is set when the user specifies an offset in ICreateTypeInfo.
+      oleaut32: Fix the typelib marshaler when the vtbl has holes.
+      include: Add some more internet options.
+
+Hwang YunSong (41):
+      sane.ds: Update Korean resource.
+      browseui: Update Korean resource.
+      clock: Update Korean resource.
+      cmdlgtst: Update Korean resource.
+      comctl32: Update Korean resource.
+      comdlg32: Update Korean resource.
+      credui: Update Korean resource.
+      crypt32: Update Korean resource.
+      cryptdlg: Update Korean resource.
+      cryptui: Update Korean resource.
+      gphoto2.ds: Update Korean resource.
+      hhctl.ocx: Update Korean resource.
+      iccvid: Update Korean resource.
+      localspl: Update Korean resource.
+      localui: Update Korean resource.
+      mpr: Update Korean resource.
+      msacm32: Update Korean resource.
+      msrle32: Update Korean resource.
+      msi: Update Korean resource.
+      msvidc32: Update Korean resource.
+      msvfw32: Update Korean resource.
+      net: Update Korean resource.
+      notepad: Update Korean resource.
+      oleacc: Update Korean resource.
+      oleaut32: Update Korean resource.
+      oledlg: Update Korean resource.
+      oleview: Update Korean resource.
+      progman: Update Korean resource.
+      reg: Update Korean resource.
+      regedit: Update Korean resource.
+      serialui: Update Korean resource.
+      setupapi: Update Korean resource.
+      view: Update Korean resource.
+      wineboot: Update Korean resource.
+      wineconsole: Update Korean resource.
+      winedbg: Update Korean resource.
+      winefile: Update Korean resource.
+      winemine: Update Korean resource.
+      wineps.drv: Update Korean resource.
+      wordpad: Update Korean resource.
+      winspool.drv: Update Korean resource.
+
+Igor Egorov (1):
+      kernel32: Add stderr redirection for native Unix programs started from Windows program.
+
+Jacek Caban (1):
+      aclocal.m4: Recognize mingw-w64 as 32-bit cross compiler.
+
+Janne Hakonen (1):
+      iphlpapi: Changed return value of NotifyAddrChange() stub and added test cases.
+
+Jerome Leclanche (2):
+      winemenubuilder: Add a trailing semicolon to MimeType in desktop files.
+      winemenubuilder: Make sure extension-based mimetypes are always lowercase.
+
+Joshua Beck (1):
+      winex11: Improved error handling in pglXMakeCurrent() call.
+
+Juan Lang (3):
+      ws2_32: Set length on successful return from WSAStringToAddress.
+      crypt32: Accept any matching CN when checking a certificate's name.
+      include: Add some missing definitions.
+
+Jörg Höhle (1):
+      msvcrt: sizeof(long double) is 12 with MS, but not necessarily so on UNIX.
+
+Ken Thomases (2):
+      iphlpapi: Enable non-privileged ICMP (ping) on Mac OS X.
+      mountmgr: Balance volume references in add_volume().
+
+Kirill Smelkov (1):
+      kernel32: Support deleting resources in UpdateResource.
+
+Lauri Kenttä (1):
+      readme: Add Finnish translation.
+
+Maarten Lankhorst (3):
+      ole32: Handle alertable wait in CoWaitForMultipleHandles.
+      mshtml: Make sure system xpcom dll gets loaded.
+      kernel32: CreateProcessA should not call CreateProcessW directly.
+
+Marcus Meissner (2):
+      wined3d: Detect nouveau as NVIDIA.
+      kernel32: Fixed size to GetEnvironmentVariableW.
+
+Martin Storsjo (2):
+      wineconsole: Fallback to window based console if the curses library isn't found.
+      wineconsole: Don't overwrite the backend selection when parsing --use-event.
+
+Michael Stefaniuc (2):
+      shlwapi: The Italian translation uses UTF-8 encoding.
+      sane.ds: The Da, En, Fi, Fr, Nl, Pt resources are using UTF-8.
+
+Nicholas Niro (1):
+      winex11.drv: Add proper initialization for border_pixel.
+
+Nikolay Sivov (3):
+      oleview: Fix a crash on null helpstring and name on library level.
+      oleview: Fix some crashes on unnamed variables.
+      oleview: Fix some crashes on unnamed methods/arguments.
+
+Paul Vriens (1):
+      notepad: Add WS_EX_LAYOUTRTL to some RTL resources.
+
+Peter Schellenbach (1):
+      oleaut32: Fixed short time & medium time named formats.
+
+Peter Schlaile (1):
+      winedbg: Adds an rwatch command to winedbg.
+
+Piotr Caban (2):
+      shell32: Improved equal ITEMIDLISTs handling in ILIsParent.
+      sane.ds: Convert Polish translation to UTF-8.
+
+Rex Tsai (1):
+      wineboot: Update Traditional Chinese translation.
+
+Tristan Schmelcher (2):
+      ddeml: Fix incorrect HSZ argument sizes.
+      ddeml: More calling convention fixes.
+
+Vincent Povirk (2):
+      oleaut32: Deserialize VT_BOOL as 2 bytes, not 4.
+      wininet: Use LIST_FOR_EACH_SAFE in a loop where we can delete an entry.
+
+Wolfram Sang (2):
+      winex11.drv: In GetDIBits() with DIB sections, always use dibpitch from the target.
+      comdlg32: Filedlg should not add extension if it contains a glob.
+
+Łukasz Wojniłowicz (3):
+      avifile: Update Polish translation.
+      taskmgr: Update Polish translation.
+      winecfg: Update Polish translation.
 
 --
 Alexandre Julliard

@@ -311,6 +311,7 @@ static BOOL X11DRV_WineGL_InitOpenglInfo(void)
 
     attr.override_redirect = True;
     attr.colormap = None;
+    attr.border_pixel = 0;
 
     wine_tsx11_lock();
 
@@ -337,13 +338,16 @@ static BOOL X11DRV_WineGL_InitOpenglInfo(void)
     if (vis->visual != DefaultVisual( gdi_display, vis->screen ))
         attr.colormap = XCreateColormap( gdi_display, root, vis->visual, AllocNone );
     if ((win = XCreateWindow( gdi_display, root, -1, -1, 1, 1, 0, vis->depth, InputOutput,
-                              vis->visual, CWOverrideRedirect | CWColormap, &attr )))
+                              vis->visual, CWBorderPixel | CWOverrideRedirect | CWColormap, &attr )))
         XMapWindow( gdi_display, win );
     else
         win = root;
 
-    pglXMakeCurrent(gdi_display, win, ctx);
-
+    if(pglXMakeCurrent(gdi_display, win, ctx) == 0)
+    {
+        ERR_(winediag)( "Unable to activate OpenGL context, most likely your OpenGL drivers haven't been installed correctly\n" );
+        goto done;
+    }
     WineGLInfo.glVersion = (const char *) pglGetString(GL_VERSION);
     str = (const char *) pglGetString(GL_EXTENSIONS);
     WineGLInfo.glExtensions = HeapAlloc(GetProcessHeap(), 0, strlen(str)+1);

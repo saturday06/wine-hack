@@ -1164,15 +1164,16 @@ void fill_cpu_info(void)
     }
 #elif defined (__OpenBSD__)
     {
-        int mib[2], num;
+        int mib[2], num, ret;
         size_t len;
 
         mib[0] = CTL_HW;
         mib[1] = HW_NCPU;
         len = sizeof(num);
 
-        num = sysctl(mib, 2, &num, &len, NULL, 0);
-        NtCurrentTeb()->Peb->NumberOfProcessors = num;
+        ret = sysctl(mib, 2, &num, &len, NULL, 0);
+        if (!ret)
+            NtCurrentTeb()->Peb->NumberOfProcessors = num;
     }
 #elif defined (__APPLE__)
     {
@@ -1587,17 +1588,18 @@ NTSTATUS WINAPI NtQuerySystemInformation(
             if (cpus == 0)
             {
                 static int i = 1;
-
-                sppi = RtlAllocateHeap(GetProcessHeap(),0,sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION));
-
-                memset(sppi, 0 , sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION));
+                int n;
+                cpus = min(NtCurrentTeb()->Peb->NumberOfProcessors, out_cpus);
+                len = sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION) * cpus;
+                sppi = RtlAllocateHeap(GetProcessHeap(), 0, len);
                 FIXME("stub info_class SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION\n");
-
                 /* many programs expect these values to change so fake change */
-                len = sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION);
-                sppi->KernelTime.QuadPart = 1 * i;
-                sppi->UserTime.QuadPart = 2 * i;
-                sppi->IdleTime.QuadPart = 3 * i;
+                for (n = 0; n < cpus; n++)
+                {
+                    sppi[n].KernelTime.QuadPart = 1 * i;
+                    sppi[n].UserTime.QuadPart   = 2 * i;
+                    sppi[n].IdleTime.QuadPart   = 3 * i;
+                }
                 i++;
             }
 

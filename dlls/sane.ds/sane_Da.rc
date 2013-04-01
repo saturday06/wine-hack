@@ -20,6 +20,8 @@
 
 #include "resource.h"
 
+#pragma code_page(65001)
+
 LANGUAGE LANG_DANISH, SUBLANG_DEFAULT
 
 IDD_DIALOG1 DIALOG DISCARDABLE 0, 0, 186, 46
@@ -38,5 +40,5 @@ STRINGTABLE DISCARDABLE
  3 "mm"
  4 "dpi"
  5 "%"
- 6 "ns"
+ 6 "µs"
 }

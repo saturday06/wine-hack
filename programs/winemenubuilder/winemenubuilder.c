@@ -2055,7 +2055,7 @@ static BOOL cleanup_associations(void)
     {
         int i;
         BOOL done = FALSE;
-        for (i = 0; !done; i++)
+        for (i = 0; !done;)
         {
             WCHAR *extensionW = NULL;
             DWORD size = 1024;
@@ -2091,6 +2091,8 @@ static BOOL cleanup_associations(void)
                     hasChanged = TRUE;
                     HeapFree(GetProcessHeap(), 0, desktopFile);
                 }
+                else
+                    i++;
                 HeapFree(GetProcessHeap(), 0, command);
             }
             else
@@ -2190,8 +2192,8 @@ static BOOL write_freedesktop_association_entry(const char *desktopPath, const c
         fprintf(desktop, "[Desktop Entry]\n");
         fprintf(desktop, "Type=Application\n");
         fprintf(desktop, "Name=%s\n", friendlyAppName);
-        fprintf(desktop, "MimeType=%s\n", mimeType);
-        fprintf(desktop, "Exec=wine start /ProgIDOpen %s %%f\n", progId);
+        fprintf(desktop, "MimeType=%s;\n", mimeType);
+        fprintf(desktop, "Exec=env WINEPREFIX=\"%s\" wine start /ProgIDOpen %s %%f\n", wine_get_config_dir(), progId);
         fprintf(desktop, "NoDisplay=true\n");
         fprintf(desktop, "StartupNotify=true\n");
         ret = TRUE;
@@ -2250,7 +2252,7 @@ static BOOL generate_associations(const char *xdg_data_home, const char *package
             WCHAR *progIdW = NULL;
             char *progIdA = NULL;
 
-            extensionA = wchars_to_utf8_chars(extensionW);
+            extensionA = wchars_to_utf8_chars(strlwrW(extensionW));
             if (extensionA == NULL)
             {
                 WINE_ERR("out of memory\n");

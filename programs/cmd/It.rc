@@ -31,9 +31,9 @@ STRINGTABLE
 {
   WCMD_ATTRIB, "Aiuto su ATTRIB\n"
   WCMD_CALL,
-"CALL <batchfilename> si usa all'interno di un file batch per eseguire comandi\n\
-da un altro file batch. Quando il file batch esiste, il controllo torna al\n\
-file che l'ha chiamato. Il comando CALL può passare parametri alla\n\
+"CALL <nomedelfilebatch> si usa all'interno di un file batch per eseguire\n\
+comandi da un altro file batch. Quando il file batch esiste, il controllo\n\
+torna al file che l'ha chiamato. Il comando CALL può passare parametri alla\n\
 procedura chiamata.\n\
 \n\
 Cambiamenti alla cartella predefinita, alle variabili d'ambiente etc fatti dentro una\n\
@@ -74,9 +74,9 @@ esiste nel cmd di wine.\n"
 "Il comando GOTO trasferisce l'esecuzione ad un'altra istruzione dentro un\n\
 file batch.\n\
 \n\
-L'etichetta che è l'obiettivo di un GOTO può essere lunga fino a 255 caratteri\n\
+L'etichetta di destinazione di un GOTO può essere lunga fino a 255 caratteri\n\
 ma non può includere spazi (questo è differente da altri sistemi\n\
-operativi). Se esistono due o più etichette identiche esistono in un file batch, la\n\
+operativi). Se esistono due o più etichette identiche in un file batch, la\n\
 prima sarà sempre eseguita. Tentare un GOTO verso un'etichetta\n\
 inesistente termina l'esecuzione del file batch.\n\
 \n\
@@ -189,9 +189,9 @@ se chiamato dalla linea di comando.\n"
 se rediretto). Nessun controllo è fatto se il file sia testo leggibile.\n"
 
   WCMD_VERIFY,
-"VERIFY è usato per settare, pulire o verificare la flag di verify. Forme valide sono:\n\
+"VERIFY è usato per impostare, pulire o verificare la flag di verify. Forme valide sono:\n\
 \n\
-VERIFY ON	Setta la flag\n\
+VERIFY ON	Imposta la flag\n\
 VERIFY OFF	Pulisce la flag\n\
 VERIFY		Mostra ON o OFF a seconda dei casi.\n\
 \n\
@@ -248,7 +248,7 @@ Inserisci HELP <comando> per maggiori informazioni su ciascuno dei comandi sopra
   WCMD_YES, "S"
   WCMD_NO, "N"
   WCMD_NOASSOC, "Associazione di file mancante per l'estensione %s\n"
-  WCMD_NOFTYPE, "Nessun comando open associato con il tipo di file '%s'\n"
+  WCMD_NOFTYPE, "Nessun comando di apertura associato con il tipo di file '%s'\n"
   WCMD_OVERWRITE, "Sovrascrivere %s"
   WCMD_MORESTR, "Di più..."
   WCMD_TRUNCATEDLINE, "Linea nell'elaborazione Batch probabilmente troncata. Uso:\n"
@@ -257,7 +257,7 @@ Inserisci HELP <comando> per maggiori informazioni su ciascuno dei comandi sopra
   WCMD_SYNTAXERR, "Errore di sintassi\n"
   WCMD_FILENOTFOUND, "%s : File non trovato\n"
   WCMD_NOCMDHELP, "Nessun aiuto disponibile per %s\n"
-  WCMD_NOTARGET, "Obiettivo del GOTO non trovato\n"
+  WCMD_NOTARGET, "Destinazione del GOTO non trovata\n"
   WCMD_CURRENTDATE, "La data attuale è  %s\n"
   WCMD_CURRENTTIME, "L'ora attuale è  %s\n"
   WCMD_NEWDATE, "Inserisci una nuova data: "
@@ -265,11 +265,11 @@ Inserisci HELP <comando> per maggiori informazioni su ciascuno dei comandi sopra
   WCMD_MISSINGENV, "Variabile d'ambiente %s non definita\n"
   WCMD_READFAIL, "Impossibile aprire '%s'\n"
   WCMD_CALLINSCRIPT, "Impossibile chiamare un'etichetta batch fuori da uno script batch\n"
-  WCMD_ALL, "A"
+  WCMD_ALL, "T"
   WCMD_DELPROMPT, "%s, Cancella"
   WCMD_ECHOPROMPT, "Echo è %s\n"
   WCMD_VERIFYPROMPT, "Verify è %s\n"
-  WCMD_VERIFYERR, "Verify deve essere ON o OFF\n";
+  WCMD_VERIFYERR, "Verify deve essere ON o OFF\n"
   WCMD_ARGERR, "Errore nel parametro\n"
   WCMD_VOLUMEDETAIL, "Il volume nell'unità %c è %s\nIl numero seriale del volume è %04x-%04x\n\n"
   WCMD_VOLUMEPROMPT, "Etichetta del volume (11 caratteri, Invio per nessuno)?"

@@ -39,6 +39,8 @@ struct drive_info
     ino_t ino;
 };
 
+extern NTSTATUS close_handle( HANDLE );
+
 /* exceptions */
 extern void wait_suspend( CONTEXT *context );
 extern NTSTATUS send_debug_event( EXCEPTION_RECORD *rec, int first_chance, CONTEXT *context );
@@ -155,7 +157,7 @@ extern NTSTATUS nt_to_unix_file_name_attr( const OBJECT_ATTRIBUTES *attr, ANSI_S
 
 /* virtual memory */
 extern void virtual_get_system_info( SYSTEM_BASIC_INFORMATION *info );
-extern NTSTATUS virtual_create_system_view( void *base, SIZE_T size, DWORD vprot );
+extern NTSTATUS virtual_create_builtin_view( void *base );
 extern NTSTATUS virtual_alloc_thread_stack( TEB *teb, SIZE_T reserve_size, SIZE_T commit_size );
 extern void virtual_clear_thread_stack(void);
 extern BOOL virtual_handle_stack_fault( void *addr );

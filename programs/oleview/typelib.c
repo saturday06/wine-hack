@@ -420,7 +420,7 @@ static int EnumVars(ITypeInfo *pTypeInfo, int cVars, HTREEITEM hParent)
         memset(wszAfter, 0, sizeof(wszAfter));
         CreateTypeInfo(wszText, wszAfter, pVarDesc->elemdescVar.tdesc, pTypeInfo);
         AddToStrW(wszText, wszSpace);
-        AddToStrW(wszText, bstrName);
+        if (bstrName) AddToStrW(wszText, bstrName);
         AddToStrW(wszText, wszAfter);
         AddToTLDataStrW(tld, wszText);
         AddToTLDataStrW(tld, wszSemicolon);
@@ -482,7 +482,7 @@ static int EnumEnums(ITypeInfo *pTypeInfo, int cVars, HTREEITEM hParent)
         AddToStrW(wszText, wszSpace);
         AddToStrW(wszText, bstrName);
         AddToStrW(wszText, wszAfter);
-	AddToTLDataStrW(tld, bstrName);
+        if (bstrName) AddToTLDataStrW(tld, bstrName);
         AddToTLDataStrW(tld, wszAfter);
 	if (i<cVars-1)
             AddToTLDataStrW(tld, wszComa);
@@ -631,7 +631,7 @@ static int EnumFuncs(ITypeInfo *pTypeInfo, TYPEATTR *pTypeAttr, HTREEITEM hParen
             AddToTLDataStrW(tld, wszStdCall);
             AddToTLDataStrW(tld, wszSpace);
         }
-        AddToTLDataStrW(tld, bstrName);
+        if (bstrName) AddToTLDataStrW(tld, bstrName);
         AddToTLDataStrW(tld, wszOpenBrackets2);
 
         for(j=0; j<pFuncDesc->cParams; j++)
@@ -701,8 +701,11 @@ static int EnumFuncs(ITypeInfo *pTypeInfo, TYPEATTR *pTypeAttr, HTREEITEM hParen
             AddToTLDataStrW(tld, wszAfter);
             AddToTLDataStrW(tld, wszSpace);
             if (j+1 < namesNo) {
-                AddToTLDataStrW(tld, bstrParamNames[j+1]);
-                SysFreeString(bstrParamNames[j+1]);
+                if (bstrParamNames[j+1])
+                {
+                    AddToTLDataStrW(tld, bstrParamNames[j+1]);
+                    SysFreeString(bstrParamNames[j+1]);
+                }
             } else {
                 AddToTLDataStrW(tld, szRhs);
             }
@@ -1227,20 +1230,26 @@ static int PopulateTree(void)
     AddSpaces(tld, TAB_SIZE);
     wsprintfW(wszText, wszFormat2, pTLibAttr->wMajorVerNum, pTLibAttr->wMinorVerNum);
     AddToTLDataStrW(tld, wszText);
-    AddToTLDataStrW(tld, wszComa);
-    AddToTLDataStrW(tld, wszNewLine);
-    AddSpaces(tld, TAB_SIZE);
-    AddToTLDataStrW(tld, wszHelpstring);
-    AddToTLDataStrW(tld, wszOpenBrackets2);
-    AddToTLDataStrW(tld, wszInvertedComa);
-    AddToTLDataStrW(tld, bstrData);
-    AddToTLDataStrW(tld, wszInvertedComa);
-    AddToTLDataStrW(tld, wszCloseBrackets2);
+
+    if (bstrData)
+    {
+        /* helpstring is optional */
+        AddToTLDataStrW(tld, wszComa);
+        AddToTLDataStrW(tld, wszNewLine);
+        AddSpaces(tld, TAB_SIZE);
+        AddToTLDataStrW(tld, wszHelpstring);
+        AddToTLDataStrW(tld, wszOpenBrackets2);
+        AddToTLDataStrW(tld, wszInvertedComa);
+        AddToTLDataStrW(tld, bstrData);
+        AddToTLDataStrW(tld, wszInvertedComa);
+        AddToTLDataStrW(tld, wszCloseBrackets2);
+    }
+
     AddToTLDataStrW(tld, wszNewLine);
     AddToTLDataStrW(tld, wszCloseBrackets1);
     AddToTLDataStrW(tld, wszNewLine);
     AddToTLDataStrW(tld, wszLibrary);
-    AddToTLDataStrW(tld, bstrName);
+    if (bstrName) AddToTLDataStrW(tld, bstrName);
     AddToTLDataStrW(tld, wszNewLine);
     AddToTLDataStrW(tld, wszOpenBrackets3);
     AddToTLDataStrW(tld, wszNewLine);

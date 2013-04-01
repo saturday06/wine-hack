@@ -200,6 +200,30 @@ DWORD WINAPI AllocateAndGetIpAddrTableFromStack(PMIB_IPADDRTABLE *ppIpAddrTable,
 
 
 /******************************************************************
+ *    CancelIPChangeNotify (IPHLPAPI.@)
+ *
+ * Cancel a previous notification created by NotifyAddrChange or
+ * NotifyRouteChange.
+ *
+ * PARAMS
+ *  overlapped [In]  overlapped structure that notifies the caller
+ *
+ * RETURNS
+ *  Success: TRUE
+ *  Failure: FALSE
+ *
+ * FIXME
+ *  Stub, returns FALSE.
+ */
+BOOL WINAPI CancelIPChangeNotify(LPOVERLAPPED overlapped)
+{
+  FIXME("(overlapped %p): stub\n", overlapped);
+  return FALSE;
+}
+
+
+
+/******************************************************************
  *    CreateIpForwardEntry (IPHLPAPI.@)
  *
  * Create a route in the local computer's IP table.
@@ -721,6 +745,7 @@ static ULONG adapterAddressesFromIndex(ULONG family, DWORD index, IP_ADAPTER_ADD
                 for (ua = aa->FirstUnicastAddress; ua->Next; ua = ua->Next)
                     ;
                 ua->Next = (IP_ADAPTER_UNICAST_ADDRESS *)ptr;
+                ua = (IP_ADAPTER_UNICAST_ADDRESS *)ptr;
             }
             else
                 ua = aa->FirstUnicastAddress = (IP_ADAPTER_UNICAST_ADDRESS *)ptr;
@@ -1678,7 +1703,8 @@ DWORD WINAPI IpRenewAddress(PIP_ADAPTER_INDEX_MAP AdapterInfo)
 DWORD WINAPI NotifyAddrChange(PHANDLE Handle, LPOVERLAPPED overlapped)
 {
   FIXME("(Handle %p, overlapped %p): stub\n", Handle, overlapped);
-  return ERROR_NOT_SUPPORTED;
+  if (Handle) *Handle = INVALID_HANDLE_VALUE;
+  return ERROR_IO_PENDING;
 }
 
 

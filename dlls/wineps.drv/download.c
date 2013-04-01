@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -271,19 +272,16 @@ BOOL PSDRV_WriteSetDownloadFont(PSDRV_PDEVICE *physDev)
     /* Retrieve the world -> device transform */
     GetTransform(physDev->hdc, 0x204, &xform);
 
+    if(GetGraphicsMode(physDev->hdc) == GM_COMPATIBLE)
+    {
+        xform.eM11 = xform.eM22 = fabs(xform.eM22);
+        xform.eM21 = xform.eM12 = 0;
+    }
+
     physDev->font.size.xx = ps_round(ppem * xform.eM11);
     physDev->font.size.xy = ps_round(ppem * xform.eM12);
-    physDev->font.size.yx = ps_round(ppem * xform.eM21);
-    physDev->font.size.yy = ps_round(ppem * xform.eM22);
-
-    switch(GetMapMode(physDev->hdc))
-    {
-    case MM_TEXT:
-    case MM_ISOTROPIC:
-    case MM_ANISOTROPIC:
-        physDev->font.size.yx *= -1;
-        physDev->font.size.yy *= -1;
-    }
+    physDev->font.size.yx = -ps_round(ppem * xform.eM21);
+    physDev->font.size.yy = -ps_round(ppem * xform.eM22);
 
     physDev->font.underlineThickness = potm->otmsUnderscoreSize;
     physDev->font.underlinePosition = potm->otmsUnderscorePosition;

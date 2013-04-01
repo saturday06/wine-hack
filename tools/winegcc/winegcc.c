@@ -185,6 +185,7 @@ struct options
     enum target_cpu target_cpu;
     enum target_platform target_platform;
     const char *target;
+    const char *version;
     int shared;
     int use_msvcrt;
     int nostdinc;
@@ -282,33 +283,114 @@ static char* get_temp_file(const char* prefix, const char* suffix)
     return tmp;
 }
 
+static char* build_tool_name(struct options *opts, const char* base, const char* deflt)
+{
+    char* str;
+
+    if (opts->target && opts->version)
+    {
+        str = strmake("%s-%s-%s", opts->target, base, opts->version);
+    }
+    else if (opts->target)
+    {
+        str = strmake("%s-%s", opts->target, base);
+    }
+    else if (opts->version)
+    {
+        str = strmake("%s-%s", base, opts->version);
+    }
+    else
+        str = xstrdup(deflt);
+    return str;
+}
+
 static const strarray* get_translator(struct options *opts)
 {
-    const char *str = NULL;
+    char *str = NULL;
     strarray *ret;
 
     switch(opts->processor)
     {
     case proc_cpp:
-        if (opts->target) str = strmake( "%s-cpp", opts->target );
-        else str = CPP;
+        str = build_tool_name(opts, "cpp", CPP);
         break;
     case proc_cc:
     case proc_as:
-        if (opts->target) str = strmake( "%s-gcc", opts->target );
-        else str = CC;
+        str = build_tool_name(opts, "gcc", CC);
         break;
     case proc_cxx:
-        if (opts->target) str = strmake( "%s-g++", opts->target );
-        else str = CXX;
+        str = build_tool_name(opts, "g++", CXX);
         break;
     default:
         assert(0);
     }
     ret = strarray_fromstring( str, " " );
+    free(str);
     if (opts->force_pointer_size)
         strarray_add( ret, strmake("-m%u", 8 * opts->force_pointer_size ));
     return ret;
+}
+
+/* check that file is a library for the correct platform */
+static int check_platform( struct options *opts, const char *file )
+{
+    int ret = 0, fd = open( file, O_RDONLY );
+    if (fd != -1)
+    {
+        unsigned char header[16];
+        if (read( fd, header, sizeof(header) ) == sizeof(header))
+        {
+            /* FIXME: only ELF is supported, platform is not checked beyond 32/64 */
+            if (!memcmp( header, "\177ELF", 4 ))
+            {
+                if (header[4] == 2)  /* 64-bit */
+                    ret = (opts->force_pointer_size == 8 ||
+                           (!opts->force_pointer_size && opts->target_cpu == CPU_x86_64));
+                else
+                    ret = (opts->force_pointer_size == 4 ||
+                           (!opts->force_pointer_size && opts->target_cpu != CPU_x86_64));
+            }
+        }
+        close( fd );
+    }
+    return ret;
+}
+
+static char *get_lib_dir( struct options *opts )
+{
+    static const char *stdlibpath[] = { LIBDIR, "/usr/lib", "/usr/local/lib", "/lib" };
+    static const char libwine[] = "/libwine.so";
+    unsigned int i;
+
+    for (i = 0; i < sizeof(stdlibpath)/sizeof(stdlibpath[0]); i++)
+    {
+        char *p, *buffer = xmalloc( strlen(stdlibpath[i]) + strlen(libwine) + 3 );
+        strcpy( buffer, stdlibpath[i] );
+        p = buffer + strlen(buffer);
+        while (p > buffer && p[-1] == '/') p--;
+        strcpy( p, libwine );
+        if (check_platform( opts, buffer )) goto found;
+        if (p > buffer + 2 && (!memcmp( p - 2, "32", 2 ) || !memcmp( p - 2, "64", 2 ))) p -= 2;
+        if (opts->force_pointer_size == 4 || (!opts->force_pointer_size && opts->target_cpu != CPU_x86_64))
+        {
+            strcpy( p, "32" );
+            strcat( p, libwine );
+            if (check_platform( opts, buffer )) goto found;
+        }
+        if (opts->force_pointer_size == 8 || (!opts->force_pointer_size && opts->target_cpu == CPU_x86_64))
+        {
+            strcpy( p, "64" );
+            strcat( p, libwine );
+            if (check_platform( opts, buffer )) goto found;
+        }
+        free( buffer );
+        continue;
+
+    found:
+        buffer[strlen(buffer) - strlen(libwine)] = 0;
+        return buffer;
+    }
+    return xstrdup( LIBDIR );
 }
 
 static void compile(struct options* opts, const char* lang)
@@ -316,6 +398,8 @@ static void compile(struct options* opts, const char* lang)
     strarray* comp_args = strarray_alloc();
     unsigned int j;
     int gcc_defs = 0;
+    char* gcc;
+    char* gpp;
 
     strarray_addall(comp_args, get_translator(opts));
     switch(opts->processor)
@@ -326,12 +410,16 @@ static void compile(struct options* opts, const char* lang)
 	/* mixing different C and C++ compilers isn't supported in configure anyway */
 	case proc_cc:
 	case proc_cxx:
+            gcc = build_tool_name(opts, "gcc", CC);
+            gpp = build_tool_name(opts, "g++", CXX);
             for ( j = 0; !gcc_defs && j < comp_args->size; j++ )
             {
                 const char *cc = comp_args->base[j];
 
-                gcc_defs = strendswith(cc, "gcc") || strendswith(cc, "g++");
+                gcc_defs = strendswith(cc, gcc) || strendswith(cc, gpp);
             }
+            free(gcc);
+            free(gpp);
             break;
     }
 
@@ -577,7 +665,6 @@ static const char *mingw_unicode_hack( struct options *opts )
 
 static void build(struct options* opts)
 {
-    static const char *stdlibpath[] = { DLLDIR, LIBDIR, "/usr/lib", "/usr/local/lib", "/lib" };
     strarray *lib_dirs, *files;
     strarray *spec_args, *link_args;
     char *output_file;
@@ -627,9 +714,10 @@ static void build(struct options* opts)
     /* prepare the linking path */
     if (!opts->wine_objdir)
     {
+        char *lib_dir = get_lib_dir( opts );
         lib_dirs = strarray_dup(opts->lib_dirs);
-	for ( j = 0; j < sizeof(stdlibpath)/sizeof(stdlibpath[0]); j++ )
-	    strarray_add(lib_dirs, stdlibpath[j]);
+        strarray_add( lib_dirs, strmake( "%s/wine", lib_dir ));
+        strarray_add( lib_dirs, lib_dir );
     }
     else
     {
@@ -1037,7 +1125,7 @@ static int is_linker_arg(const char* arg)
  */
 static int is_target_arg(const char* arg)
 {
-    return arg[1] == 'b' || arg[2] == 'V';
+    return arg[1] == 'b' || arg[1] == 'V';
 }
 
 
@@ -1194,7 +1282,11 @@ int main(int argc, char **argv)
 			next_is_arg = 1;
 		    break;
 	    }
-	    if (next_is_arg) option_arg = argv[i+1];
+	    if (next_is_arg)
+            {
+                if (i + 1 >= argc) error("option -%c requires an argument\n", argv[i][1]);
+                option_arg = argv[i+1];
+            }
 
 	    /* determine what options go 'as is' to the linker & the compiler */
 	    raw_compiler_arg = raw_linker_arg = 0;
@@ -1214,7 +1306,7 @@ int main(int argc, char **argv)
 		raw_linker_arg = 0;
 	    if (argv[i][1] == 'c' || argv[i][1] == 'L')
 		raw_compiler_arg = 0;
-	    if (argv[i][1] == 'o' || argv[i][1] == 'b')
+	    if (argv[i][1] == 'o' || argv[i][1] == 'b' || argv[i][1] == 'V')
 		raw_compiler_arg = raw_linker_arg = 0;
 
 	    /* do a bit of semantic analysis */
@@ -1236,6 +1328,9 @@ int main(int argc, char **argv)
 		    break;
                 case 'b':
                     parse_target_option( &opts, option_arg );
+                    break;
+                case 'V':
+                    opts.version = xstrdup( option_arg );
                     break;
                 case 'c':        /* compile or assemble */
 		    if (argv[i][2] == 0) opts.compile_only = 1;

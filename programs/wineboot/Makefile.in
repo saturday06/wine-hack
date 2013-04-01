@@ -18,6 +18,7 @@ RC_SRCS = \
 	wineboot_En.rc \
 	wineboot_Es.rc \
 	wineboot_Fr.rc \
+	wineboot_He.rc \
 	wineboot_It.rc \
 	wineboot_Ja.rc \
 	wineboot_Ko.rc \
@@ -31,6 +32,19 @@ RC_SRCS = \
 	wineboot_Si.rc \
 	wineboot_Sr.rc \
 	wineboot_Sv.rc \
+	wineboot_Uk.rc \
 	wineboot_Zh.rc
 
+MANPAGES = wineboot.man
+
 @MAKE_PROG_RULES@
+
+all: $(MANPAGES)
+
+install-man-pages:: $(MANPAGES) $(DESTDIR)$(mandir)/man$(prog_manext)
+	$(INSTALL_DATA) wineboot.man $(DESTDIR)$(mandir)/man$(prog_manext)/wineboot.$(prog_manext)
+
+@WOW64_DISABLE@ install install-lib:: install-man-pages
+
+uninstall::
+	$(RM) $(DESTDIR)$(mandir)/man$(prog_manext)/wineboot.$(prog_manext)

@@ -666,7 +666,11 @@ NTSTATUS add_volume( const char *udi, const char *device, const char *mount_poin
 
     EnterCriticalSection( &device_section );
     LIST_FOR_EACH_ENTRY( volume, &volumes_list, struct volume, entry )
-        if (volume->udi && !strcmp( udi, volume->udi )) goto found;
+        if (volume->udi && !strcmp( udi, volume->udi ))
+        {
+            grab_volume( volume );
+            goto found;
+        }
 
     /* udi not found, search for a non-dynamic volume */
     if ((volume = find_matching_volume( udi, device, mount_point, type ))) set_volume_udi( volume, udi );
@@ -879,6 +883,26 @@ static NTSTATUS WINAPI harddisk_ioctl( DEVICE_OBJECT *device, IRP *irp )
         info.TracksPerCylinder = 255;
         info.SectorsPerTrack = 63;
         info.BytesPerSector = 512;
+        memcpy( irp->MdlAddress->StartVa, &info, len );
+        irp->IoStatus.Information = len;
+        irp->IoStatus.u.Status = STATUS_SUCCESS;
+        break;
+    }
+    case IOCTL_DISK_GET_DRIVE_GEOMETRY_EX:
+    {
+        DISK_GEOMETRY_EX info;
+        DWORD len = min( sizeof(info), irpsp->Parameters.DeviceIoControl.OutputBufferLength );
+
+        FIXME("The DISK_PARTITION_INFO and DISK_DETECTION_INFO structures will not be filled\n");
+
+        info.Geometry.Cylinders.QuadPart = 10000;
+        info.Geometry.MediaType = (dev->devnum.DeviceType == FILE_DEVICE_DISK) ? FixedMedia : RemovableMedia;
+        info.Geometry.TracksPerCylinder = 255;
+        info.Geometry.SectorsPerTrack = 63;
+        info.Geometry.BytesPerSector = 512;
+        info.DiskSize.QuadPart = info.Geometry.Cylinders.QuadPart * info.Geometry.TracksPerCylinder *
+                                 info.Geometry.SectorsPerTrack * info.Geometry.BytesPerSector;
+        info.Data[0]  = 0;
         memcpy( irp->MdlAddress->StartVa, &info, len );
         irp->IoStatus.Information = len;
         irp->IoStatus.u.Status = STATUS_SUCCESS;

@@ -16,12 +16,15 @@ RC_SRCS = \
 	cryptui_En.rc \
 	cryptui_Fr.rc \
 	cryptui_It.rc \
+	cryptui_Ja.rc \
 	cryptui_Ko.rc \
 	cryptui_Lt.rc \
 	cryptui_Nl.rc \
 	cryptui_No.rc \
 	cryptui_Pl.rc \
 	cryptui_Pt.rc \
-	cryptui_Ro.rc
+	cryptui_Ro.rc \
+	cryptui_Sv.rc \
+	cryptui_Uk.rc
 
 @MAKE_DLL_RULES@

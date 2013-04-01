@@ -206,6 +206,11 @@ HKCR,xmlfile\shell\open\ddeexec,,2,"""%1"",,-1,0,,,,"
 HKCR,xmlfile\shell\open\ddeexec,"NoActivateHandler",2,""
 HKCR,xmlfile\shell\open\ddeexec\Application,,2,"IExplore"
 HKCR,xmlfile\shell\open\ddeexec\Topic,,2,"WWW_OpenURL"
+HKCR,ftp\shell\open\command,,2,"%11%\winebrowser.exe -nohome"
+HKCR,ftp\shell\open\ddeexec,,2,"""%1"",,-1,0,,,,"
+HKCR,ftp\shell\open\ddeexec,"NoActivateHandler",2,""
+HKCR,ftp\shell\open\ddeexec\Application,,2,"IExplore"
+HKCR,ftp\shell\open\ddeexec\Topic,,2,"WWW_OpenURL"
 HKCR,http\shell\open\command,,2,"%11%\winebrowser.exe -nohome"
 HKCR,http\shell\open\ddeexec,,2,"""%1"",,-1,0,,,,"
 HKCR,http\shell\open\ddeexec,"NoActivateHandler",2,""
@@ -443,7 +448,7 @@ HKLM,%CurrentVersion%\Explorer\AutoplayHandlers,,16
 HKLM,%CurrentVersion%\Explorer\DriveIcons,,16
 HKLM,%CurrentVersion%\Explorer\KindMap,,16
 HKLM,%CurrentVersion%\Group Policy,,16
-HKLM,%CurrentVersion%\Policies,,16
+HKLM,%CurrentVersion%\Policies\System,"EnableLUA",0x10003,0
 HKLM,%CurrentVersion%\PreviewHandlers,,16
 HKLM,%CurrentVersion%\Setup,"BootDir",,"%30%"
 HKLM,%CurrentVersion%\Setup,"SharedDir",,"%25%"
@@ -471,7 +476,7 @@ HKLM,%CurrentVersionNT%\ProfileList,,16
 [Debugger]
 HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
 HKLM,%CurrentVersionNT%\AeDebug,"Auto",2,"1"
-HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98"
+HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98;kernel32.TlsGetValue;kernel32.TlsSetValue;kernel32.FlsGetValue;kernel32.FlsSetValue;kernel32.SetLastError"
 HKCU,Software\Wine\Debug,"RelayFromExclude",2,"winex11.drv;user32;gdi32;advapi32;kernel32"
 
 [Desktop]
@@ -550,11 +555,9 @@ HKLM,%Control%\Session Manager,HeapDeCommitFreeBlockThreshold,0x00040002,0
 HKLM,%Control%\Session Manager,HeapDeCommitTotalFreeThreshold,0x00040002,0
 HKLM,%Control%\Session Manager,HeapSegmentCommit,0x00040002,0
 HKLM,%Control%\Session Manager,HeapSegmentReserve,0x00040002,0
-HKLM,%Control%\Session Manager\Environment,"CommonProgramFiles",,"%16427%"
 HKLM,%Control%\Session Manager\Environment,"ComSpec",0x00020000,"%11%\cmd.exe"
 HKLM,%Control%\Session Manager\Environment,"PATH",0x00020002,"%11%;%10%;%11%\wbem"
 HKLM,%Control%\Session Manager\Environment,"PATHEXT",,".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH"
-HKLM,%Control%\Session Manager\Environment,"ProgramFiles",,"%16422%"
 HKLM,%Control%\Session Manager\Environment,"SystemDrive",2,"c:"
 HKLM,%Control%\Session Manager\Environment,"SYSTEMROOT",,"%10%"
 HKLM,%Control%\Session Manager\Environment,"TEMP",0x00020002,"%10%\temp"
@@ -2556,7 +2559,8 @@ HKLM,%CurrentVersion%\Telephony\Country List\998,"SameAreaRule",,"G"
 [FakeDllsWow64]
 ; create some directories first
 11,mui,
-11,wbem,
+11,gecko\plugin,npmshtml.dll
+11,wbem,mofcomp.exe
 11,,iexplore.exe,-
 11,,winetest.exe,-
 12,,mountmgr.sys,-

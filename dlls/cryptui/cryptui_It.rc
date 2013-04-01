@@ -58,8 +58,8 @@ STRINGTABLE DISCARDABLE
     IDS_FIELD_VALID_TO "Valido fino a"
     IDS_FIELD_SUBJECT "Soggetto"
     IDS_FIELD_PUBLIC_KEY "Chiave pubblica"
-    IDS_FIELD_PUBLIC_KEY_FORMAT "%s (%d bits)"
-    IDS_PROP_HASH "SHA1 hash"
+    IDS_FIELD_PUBLIC_KEY_FORMAT "%s (%d bit)"
+    IDS_PROP_HASH "Hash SHA1"
     IDS_PROP_ENHKEY_USAGE "Uso delle chiavi avanzate (proprietà)"
     IDS_PROP_FRIENDLY_NAME "Nome amichevole"
     IDS_PROP_DESCRIPTION "Descrizione"
@@ -69,7 +69,7 @@ STRINGTABLE DISCARDABLE
     IDS_SELECT_STORE_TITLE "Seleziona il deposito certificati"
     IDS_SELECT_STORE "Prego selezionare il deposito certificati."
     IDS_IMPORT_WIZARD "Guida all'Importazione di Certificati"
-    IDS_IMPORT_TYPE_MISMATCH "Il file contiene oggetti che non match con i criteri dati. Selezionare un altro file."
+    IDS_IMPORT_TYPE_MISMATCH "Il file contiene oggetti che non corrisponde con i criteri dati. Selezionare un altro file."
     IDS_IMPORT_FILE_TITLE "File da importare"
     IDS_IMPORT_FILE_SUBTITLE "Specificare il file che vuoi importare."
     IDS_IMPORT_STORE_TITLE "Deposito certificati"
@@ -97,10 +97,10 @@ STRINGTABLE DISCARDABLE
     IDS_IMPORT_CONTENT_PFX "Scambio Informazioni Personali"
     IDS_IMPORT_CONTENT_STORE "Deposito Certificati"
     IDS_IMPORT_SUCCEEDED "Importazione riuscita."
-    IDS_IMPORT_FAILED "Imposrtazione fallita."
+    IDS_IMPORT_FAILED "Importazione fallita."
     IDS_WIZARD_TITLE_FONT "Arial"
     IDS_PURPOSE_ALL "<Tutti>"
-    IDS_PURPOSE_ADVANCED "<Advanced Purposes>"
+    IDS_PURPOSE_ADVANCED "<Ragioni speciali>"
     IDS_SUBJECT_COLUMN "Emesso per"
     IDS_ISSUER_COLUMN "Emesso da"
     IDS_EXPIRATION_COLUMN "Data di scadenza"
@@ -154,7 +154,7 @@ STRINGTABLE DISCARDABLE
     IDS_EXPORT_FILE_SUBTITLE "Specifica il nome del file nel quale il contenuto sarà salvato."
     IDS_EXPORT_FILE_EXISTS "File specificato esistene. Vuoi sostituirlo?"
     IDS_EXPORT_FILTER_CERT "Binario DER-Encoded X.509 (*.cer)"
-    IDS_EXPORT_FILTER_BASE64_CERT "Base64-Encoded X.509 (*.cer)"
+    IDS_EXPORT_FILTER_BASE64_CERT "X.509 Base64-Encoded (*.cer)"
     IDS_EXPORT_FILTER_CRL "Lista di Revoca di Certificati (*.crl)"
     IDS_EXPORT_FILTER_CTL "Lista di Fiducia di Certificati (*.stl)"
     IDS_EXPORT_FILTER_CMS "Messaggi CMS/PKCS #7 (*.p7b)"
@@ -422,9 +422,9 @@ CAPTION "Guida all'Esportazione del Certificato"
 FONT 8, "MS Shell Dlg"
 BEGIN
   LTEXT "Seleziona il formato che vuoi usare:", -1, 21,1,195,10
-  AUTORADIOBUTTON "&DER-encoded X.509 (.cer)",
+  AUTORADIOBUTTON "X.509 &DER-encoded (.cer)",
     IDC_EXPORT_FORMAT_DER, 31,18,240,12, BS_AUTORADIOBUTTON|WS_TABSTOP
-  AUTORADIOBUTTON "Ba&se64-encoded X.509 (.cer):",
+  AUTORADIOBUTTON "X.509 Ba&se64-encoded (.cer):",
     IDC_EXPORT_FORMAT_BASE64, 31,30,240,12, BS_AUTORADIOBUTTON
   AUTORADIOBUTTON "Messaggio &Crittografico con Sintassi Standard/Messaggio PKCS #7 (.p7b)",
     IDC_EXPORT_FORMAT_CMS, 31,42,240,12, BS_AUTORADIOBUTTON

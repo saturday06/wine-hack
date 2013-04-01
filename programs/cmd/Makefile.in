@@ -31,7 +31,9 @@ RC_SRCS = \
 	Ro.rc \
 	Ru.rc \
 	Si.rc \
+	Sv.rc \
 	Tr.rc \
+	Uk.rc \
 	wcmdrc.rc
 
 SVG_SRCS = wcmd.svg

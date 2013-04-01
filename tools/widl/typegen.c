@@ -1485,8 +1485,12 @@ static unsigned int write_nonsimple_pointer(FILE *file, const attr_list_t *attrs
     if (out_attr && !in_attr && pointer_type == RPC_FC_RP)
         flags |= RPC_FC_P_ONSTACK;
 
-    if (is_ptr(type) && is_declptr(type_pointer_get_ref(type)))
-        flags |= RPC_FC_P_DEREF;
+    if (is_ptr(type))
+    {
+        type_t *ref = type_pointer_get_ref(type);
+        if(is_declptr(ref) && !is_user_type(ref))
+            flags |= RPC_FC_P_DEREF;
+    }
 
     print_file(file, 2, "0x%x, 0x%x,\t\t/* %s",
                pointer_type,
@@ -4013,10 +4017,22 @@ void assign_stub_out_args( FILE *file, int indent, const var_t *func, const char
                 if (type_array_has_conformance(var->type))
                 {
                     unsigned int size;
-                    type_t *type = var->type;
+                    type_t *type;
 
                     fprintf(file, " = NdrAllocate(&__frame->_StubMsg, ");
-                    for ( ;
+                    for (type = var->type;
+                         is_array(type) && type_array_has_conformance(type);
+                         type = type_array_get_element(type))
+                    {
+                        write_expr(file, type_array_get_conformance(type), TRUE,
+                                   TRUE, NULL, NULL, local_var_prefix);
+                        fprintf(file, " * ");
+                    }
+                    size = type_memsize(type);
+                    fprintf(file, "%u);\n", size);
+
+                    print_file(file, indent, "memset(%s%s, 0, ", local_var_prefix, var->name);
+                    for (type = var->type;
                          is_array(type) && type_array_has_conformance(type);
                          type = type_array_get_element(type))
                     {
@@ -4038,12 +4054,15 @@ void assign_stub_out_args( FILE *file, int indent, const var_t *func, const char
                 case TGT_ENUM:
                 case TGT_POINTER:
                 case TGT_RANGE:
+                case TGT_IFACE_POINTER:
                     print_file(file, indent, "%s_W%u = 0;\n", local_var_prefix, i);
+                    break;
+                case TGT_USER_TYPE:
+                    print_file(file, indent, "memset(&%s_W%u, 0, sizeof(%s_W%u));\n",
+                               local_var_prefix, i, local_var_prefix, i);
                     break;
                 case TGT_STRUCT:
                 case TGT_UNION:
-                case TGT_USER_TYPE:
-                case TGT_IFACE_POINTER:
                 case TGT_ARRAY:
                 case TGT_CTXT_HANDLE:
                 case TGT_CTXT_HANDLE_POINTER:

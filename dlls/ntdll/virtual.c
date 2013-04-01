@@ -122,6 +122,7 @@ static RTL_CRITICAL_SECTION csVirtual = { &critsect_debug, -1, 0, 0, 0, 0 };
 static void *address_space_limit = (void *)0xc0000000;  /* top of the total available address space */
 static void *user_space_limit    = (void *)0x7fff0000;  /* top of the user address space */
 static void *working_set_limit   = (void *)0x7fff0000;  /* top of the current working set */
+static void *address_space_start = (void *)0x110000;    /* keep DOS area clear */
 #elif defined(__x86_64__)
 # define page_mask  0xfff
 # define page_shift 12
@@ -129,6 +130,7 @@ static void *working_set_limit   = (void *)0x7fff0000;  /* top of the current wo
 static void *address_space_limit = (void *)0x7fffffff0000;
 static void *user_space_limit    = (void *)0x7fffffff0000;
 static void *working_set_limit   = (void *)0x7fffffff0000;
+static void *address_space_start = (void *)0x10000;
 #else
 static UINT page_shift;
 static UINT_PTR page_size;
@@ -136,6 +138,7 @@ static UINT_PTR page_mask;
 static void *address_space_limit;
 static void *user_space_limit;
 static void *working_set_limit;
+static void *address_space_start = (void *)0x10000;
 #endif  /* __i386__ */
 
 #define ROUND_ADDR(addr,mask) \
@@ -443,7 +446,7 @@ static void delete_view( struct file_view *view ) /* [in] View */
 {
     if (!(view->protect & VPROT_SYSTEM)) unmap_area( view->base, view->size );
     list_remove( &view->entry );
-    if (view->mapping) NtClose( view->mapping );
+    if (view->mapping) close_handle( view->mapping );
     RtlFreeHeap( virtual_heap, 0, view );
 }
 
@@ -862,6 +865,13 @@ static NTSTATUS map_file_into_view( struct file_view *view, int fd, size_t start
     assert( start < view->size );
     assert( start + size <= view->size );
 
+    if (force_exec_prot && !(vprot & VPROT_NOEXEC) && (vprot & VPROT_READ))
+    {
+        TRACE( "forcing exec permission on mapping %p-%p\n",
+               (char *)view->base + start, (char *)view->base + start + size - 1 );
+        prot |= PROT_EXEC;
+    }
+
     /* only try mmap if media is not removable (or if we require write access) */
     if (!removable || shared_write)
     {
@@ -1037,7 +1047,7 @@ static NTSTATUS map_image( HANDLE hmapping, int fd, char *base, SIZE_T total_siz
 
     server_enter_uninterrupted_section( &csVirtual, &sigset );
 
-    if (base >= (char *)0x110000)  /* make sure the DOS area remains free */
+    if (base >= (char *)address_space_start)  /* make sure the DOS area remains free */
         status = map_view( &view, base, total_size, mask, FALSE,
                            VPROT_COMMITTED | VPROT_READ | VPROT_EXEC | VPROT_WRITECOPY | VPROT_IMAGE );
 
@@ -1277,7 +1287,7 @@ static NTSTATUS map_image( HANDLE hmapping, int fd, char *base, SIZE_T total_siz
             size = ROUND_SIZE( sec->VirtualAddress, sec->SizeOfRawData );
 
         if (sec->Characteristics & IMAGE_SCN_MEM_READ)    vprot |= VPROT_READ;
-        if (sec->Characteristics & IMAGE_SCN_MEM_WRITE)   vprot |= VPROT_READ|VPROT_WRITECOPY;
+        if (sec->Characteristics & IMAGE_SCN_MEM_WRITE)   vprot |= VPROT_READ|VPROT_WRITE;
         if (sec->Characteristics & IMAGE_SCN_MEM_EXECUTE) vprot |= VPROT_EXEC;
 
         /* Dumb game crack lets the AOEP point into a data section. Adjust. */
@@ -1328,6 +1338,7 @@ void virtual_init(void)
 {
     const char *preload;
     void *heap_base;
+    size_t size;
     struct file_view *heap_view;
 
 #ifndef page_mask
@@ -1358,9 +1369,10 @@ void virtual_init(void)
                                   VIRTUAL_HEAP_SIZE, NULL, NULL );
     create_view( &heap_view, heap_base, VIRTUAL_HEAP_SIZE, VPROT_COMMITTED | VPROT_READ | VPROT_WRITE );
 
-    /* make the DOS area accessible to hide bugs in broken apps like Excel 2003 */
-    if (wine_mmap_is_in_reserved_area( (void *)0x10000, 0x100000 ) == 1)
-        wine_anon_mmap( (void *)0x10000, 0x100000, PROT_READ | PROT_WRITE, MAP_FIXED );
+    /* make the DOS area accessible (except the low 64K) to hide bugs in broken apps like Excel 2003 */
+    size = (char *)address_space_start - (char *)0x10000;
+    if (size && wine_mmap_is_in_reserved_area( (void*)0x10000, size ) == 1)
+        wine_anon_mmap( (void *)0x10000, size, PROT_READ | PROT_WRITE, MAP_FIXED );
 }
 
 
@@ -1395,18 +1407,42 @@ void virtual_get_system_info( SYSTEM_BASIC_INFORMATION *info )
 /***********************************************************************
  *           virtual_create_system_view
  */
-NTSTATUS virtual_create_system_view( void *base, SIZE_T size, DWORD vprot )
+NTSTATUS virtual_create_builtin_view( void *module )
 {
-    FILE_VIEW *view;
     NTSTATUS status;
     sigset_t sigset;
+    IMAGE_NT_HEADERS *nt = RtlImageNtHeader( module );
+    SIZE_T size = nt->OptionalHeader.SizeOfImage;
+    IMAGE_SECTION_HEADER *sec;
+    FILE_VIEW *view;
+    void *base;
+    int i;
 
-    size = ROUND_SIZE( base, size );
-    base = ROUND_ADDR( base, page_mask );
+    size = ROUND_SIZE( module, size );
+    base = ROUND_ADDR( module, page_mask );
     server_enter_uninterrupted_section( &csVirtual, &sigset );
-    status = create_view( &view, base, size, vprot );
+    status = create_view( &view, base, size, VPROT_SYSTEM | VPROT_IMAGE |
+                          VPROT_COMMITTED | VPROT_READ | VPROT_WRITECOPY | VPROT_EXEC );
     if (!status) TRACE( "created %p-%p\n", base, (char *)base + size );
     server_leave_uninterrupted_section( &csVirtual, &sigset );
+
+    if (status) return status;
+
+    /* The PE header is always read-only, no write, no execute. */
+    view->prot[0] = VPROT_COMMITTED | VPROT_READ;
+
+    sec = (IMAGE_SECTION_HEADER *)((char *)&nt->OptionalHeader + nt->FileHeader.SizeOfOptionalHeader);
+    for (i = 0; i < nt->FileHeader.NumberOfSections; i++)
+    {
+        BYTE flags = VPROT_COMMITTED;
+
+        if (sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) flags |= VPROT_EXEC;
+        if (sec[i].Characteristics & IMAGE_SCN_MEM_READ) flags |= VPROT_READ;
+        if (sec[i].Characteristics & IMAGE_SCN_MEM_WRITE) flags |= VPROT_WRITE;
+        memset (view->prot + (sec[i].VirtualAddress >> page_shift), flags,
+                ROUND_SIZE( sec[i].VirtualAddress, sec[i].Misc.VirtualSize ) >> page_shift );
+    }
+
     return status;
 }
 

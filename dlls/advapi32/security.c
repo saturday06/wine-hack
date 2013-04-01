@@ -2069,6 +2069,11 @@ LookupAccountSidA(
         } else
             *domainSize = domainSizeW + 1;
     }
+    else
+    {
+        *accountSize = accountSizeW + 1;
+        *domainSize = domainSizeW + 1;
+    }
 
     HeapFree( GetProcessHeap(), 0, systemW );
     HeapFree( GetProcessHeap(), 0, accountW );
@@ -2225,8 +2230,11 @@ LookupAccountSidW(
             if (domain)
                 lstrcpyW(domain, dm);
         }
-        if (((*accountSize != 0) && (*accountSize < ac_len)) ||
-            ((*domainSize != 0) && (*domainSize < dm_len))) {
+        if ((*accountSize && *accountSize < ac_len) ||
+            (!account && !*accountSize && ac_len)   ||
+            (*domainSize && *domainSize < dm_len)   ||
+            (!domain && !*domainSize && dm_len))
+        {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             status = FALSE;
         }
@@ -2238,9 +2246,10 @@ LookupAccountSidW(
             *accountSize = ac_len;
         else
             *accountSize = ac_len + 1;
-        *name_use = use;
+
         HeapFree(GetProcessHeap(), 0, account_name);
         HeapFree(GetProcessHeap(), 0, computer_name);
+        if (status) *name_use = use;
         return status;
     }
 
@@ -2620,9 +2629,8 @@ static BOOL lookup_user_account_name(PSID Sid, PDWORD cbSid, LPWSTR ReferencedDo
     HANDLE token;
     BOOL ret;
     PSID pSid;
-    static const WCHAR dm[] = {'D','O','M','A','I','N',0};
+    WCHAR domainName[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD nameLen;
-    LPCWSTR domainName;
 
     if (!OpenThreadToken(GetCurrentThread(), TOKEN_READ, TRUE, &token))
     {
@@ -2646,9 +2654,12 @@ static BOOL lookup_user_account_name(PSID Sid, PDWORD cbSid, LPWSTR ReferencedDo
     }
     *cbSid = GetLengthSid(pSid);
 
-    domainName = dm;
-    nameLen = strlenW(domainName);
-
+    nameLen = MAX_COMPUTERNAME_LENGTH + 1;
+    if (!GetComputerNameW(domainName, &nameLen))
+    {
+        domainName[0] = 0;
+        nameLen = 0;
+    }
     if (*cchReferencedDomainName <= nameLen || !ret)
     {
         SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -2674,9 +2685,8 @@ static BOOL lookup_computer_account_name(PSID Sid, PDWORD cbSid, LPWSTR Referenc
 {
     MAX_SID local;
     BOOL ret;
-    static const WCHAR dm[] = {'D','O','M','A','I','N',0};
+    WCHAR domainName[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD nameLen;
-    LPCWSTR domainName;
 
     if ((ret = ADVAPI_GetComputerSid(&local)))
     {
@@ -2690,9 +2700,12 @@ static BOOL lookup_computer_account_name(PSID Sid, PDWORD cbSid, LPWSTR Referenc
         *cbSid = GetLengthSid(&local);
     }
 
-    domainName = dm;
-    nameLen = strlenW(domainName);
-
+    nameLen = MAX_COMPUTERNAME_LENGTH + 1;
+    if (!GetComputerNameW(domainName, &nameLen))
+    {
+        domainName[0] = 0;
+        nameLen = 0;
+    }
     if (*cchReferencedDomainName <= nameLen || !ret)
     {
         SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -2889,11 +2902,12 @@ BOOL WINAPI LookupAccountNameW( LPCWSTR lpSystemName, LPCWSTR lpAccountName, PSI
     BOOL ret, handled;
     LSA_UNICODE_STRING account;
 
-    FIXME("%s %s %p %p %p %p %p - stub\n", debugstr_w(lpSystemName), debugstr_w(lpAccountName),
+    TRACE("%s %s %p %p %p %p %p\n", debugstr_w(lpSystemName), debugstr_w(lpAccountName),
           Sid, cbSid, ReferencedDomainName, cchReferencedDomainName, peUse);
 
     if (!ADVAPI_IsLocalComputer( lpSystemName ))
     {
+        FIXME("remote computer not supported\n");
         SetLastError( RPC_S_SERVER_UNAVAILABLE );
         return FALSE;
     }

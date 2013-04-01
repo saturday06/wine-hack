@@ -1763,6 +1763,12 @@ NTSTATUS WINAPI RtlQueryInformationAcl(
     TRACE("pAcl=%p pAclInfo=%p len=%d, class=%d\n", 
         pAcl, pAclInformation, nAclInformationLength, dwAclInformationClass);
 
+    if (!pAcl)
+    {
+        FIXME("Oops! pAcl==NULL. But we don't raise exception for IE8 !");
+        return STATUS_INVALID_PARAMETER;
+    }
+
     switch (dwAclInformationClass)
     {
         case AclRevisionInformation:

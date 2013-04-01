@@ -3114,6 +3114,9 @@ LRESULT WINAPI SendMessageTimeoutW( HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
                                     UINT flags, UINT timeout, PDWORD_PTR res_ptr )
 {
     struct send_message_info info;
+    LRESULT lr;
+
+    FIXME("begin\n");
 
     info.type    = MSG_UNICODE;
     info.hwnd    = hwnd;
@@ -3121,9 +3124,16 @@ LRESULT WINAPI SendMessageTimeoutW( HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
     info.wparam  = wparam;
     info.lparam  = lparam;
     info.flags   = flags;
-    info.timeout = timeout;
+    info.timeout = timeout * 10;
 
-    return send_message( &info, res_ptr, TRUE );
+    if (res_ptr) {
+        FIXME("before res=%lu\n", *res_ptr);
+    }
+    lr = send_message( &info, res_ptr, TRUE );
+    if (res_ptr) {
+        FIXME("after res=%lu lr=%lu\n", *res_ptr, lr);
+    }
+    return lr;
 }
 
 /***********************************************************************
